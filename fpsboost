@@ -1,10 +1,9 @@
 local RunService = game:GetService("RunService")
-local Players = game:GetService("Players")
 local Lighting = game:GetService("Lighting")
 local CoreGui = game:GetService("CoreGui")
 
 -- =========================
--- FPS UI
+-- FPS UI (chỉ FPS)
 -- =========================
 if CoreGui:FindFirstChild("FPS_UI") then
     CoreGui.FPS_UI:Destroy()
@@ -17,7 +16,7 @@ screenGui.Parent = CoreGui
 
 local textLabel = Instance.new("TextLabel")
 textLabel.Parent = screenGui
-textLabel.Size = UDim2.new(0, 120, 0, 40)
+textLabel.Size = UDim2.new(0, 100, 0, 35)
 textLabel.Position = UDim2.new(0, 10, 0, 10)
 textLabel.BackgroundTransparency = 1
 textLabel.TextStrokeTransparency = 0
@@ -43,19 +42,8 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- =========================
--- REMOVE EFFECTS (BOOST FPS)
+-- REMOVE EFFECTS
 -- =========================
-
-Lighting.GlobalShadows = false
-Lighting.FogEnd = 100000
-Lighting.Brightness = 1
-
-for _,v in ipairs(Lighting:GetDescendants()) do
-    pcall(function()
-        v:Destroy()
-    end)
-end
-
 local function removeFX(v)
     pcall(function()
         if v:IsA("ParticleEmitter")
@@ -71,9 +59,8 @@ local function removeFX(v)
 end
 
 -- =========================
--- HIDE BASEPART (MAP + OBJECTS)
+-- HIDE BASEPART
 -- =========================
-
 local function hidePart(v)
     pcall(function()
         if v:IsA("BasePart") then
@@ -84,13 +71,26 @@ local function hidePart(v)
 end
 
 -- map hiện tại
-for _,v in ipairs(workspace:GetDescendants()) do
+for _,v in next, workspace:GetDescendants() do
     removeFX(v)
     hidePart(v)
 end
 
--- object spawn mới
+-- object mới spawn
 workspace.DescendantAdded:Connect(function(v)
     removeFX(v)
     hidePart(v)
 end)
+
+-- =========================
+-- LIGHTING BOOST
+-- =========================
+Lighting.GlobalShadows = false
+Lighting.FogEnd = 100000
+Lighting.Brightness = 1
+
+for _,v in ipairs(Lighting:GetDescendants()) do
+    pcall(function()
+        v:Destroy()
+    end)
+end
