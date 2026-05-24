@@ -1,29 +1,81 @@
-for _,v in next, workspace:GetDescendants() do
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local Lighting = game:GetService("Lighting")
+local CoreGui = game:GetService("CoreGui")
+
+-- =========================
+-- FPS UI
+-- =========================
+if CoreGui:FindFirstChild("FPS_UI") then
+    CoreGui.FPS_UI:Destroy()
+end
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "FPS_UI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = CoreGui
+
+local textLabel = Instance.new("TextLabel")
+textLabel.Parent = screenGui
+textLabel.Size = UDim2.new(0, 120, 0, 40)
+textLabel.Position = UDim2.new(0, 10, 0, 10)
+textLabel.BackgroundTransparency = 1
+textLabel.TextStrokeTransparency = 0
+textLabel.Font = Enum.Font.FredokaOne
+textLabel.TextScaled = true
+textLabel.TextColor3 = Color3.new(1,1,1)
+
+local frames = 0
+local last = tick()
+
+RunService.RenderStepped:Connect(function()
+    frames += 1
+
+    local now = tick()
+    if now - last >= 1 then
+        local fps = math.floor(frames / (now - last))
+
+        frames = 0
+        last = now
+
+        textLabel.Text = "FPS: " .. fps
+    end
+end)
+
+-- =========================
+-- REMOVE EFFECTS (BOOST FPS)
+-- =========================
+
+-- Lighting giảm hiệu ứng
+Lighting.GlobalShadows = false
+Lighting.FogEnd = 100000
+Lighting.Brightness = 1
+
+for _,v in ipairs(Lighting:GetDescendants()) do
     pcall(function()
-        if v:IsA("BasePart") then
-            v.Transparency = 1
+        v:Destroy()
+    end)
+end
+
+-- Xóa effect trong workspace
+local function removeFX(v)
+    pcall(function()
+        if v:IsA("ParticleEmitter")
+        or v:IsA("Trail")
+        or v:IsA("Smoke")
+        or v:IsA("Fire")
+        or v:IsA("Sparkles")
+        then
+            v.Enabled = false
+            v:Destroy()
         end
     end)
 end
 
-for _,v in next, getnilinstances() do
-    pcall(function()
-        if v:IsA("BasePart") then
-            v.Transparency = 1
-        end
-
-        for _,v1 in next, v:GetDescendants() do
-            if v1:IsA("BasePart") then
-                v1.Transparency = 1
-            end
-        end
-    end)
+for _,v in ipairs(workspace:GetDescendants()) do
+    removeFX(v)
 end
 
 workspace.DescendantAdded:Connect(function(v)
-    pcall(function()
-        if v:IsA("BasePart") then
-            v.Transparency = 1
-        end
-    end)
+    removeFX(v)
 end)
