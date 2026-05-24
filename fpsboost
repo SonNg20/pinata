@@ -46,7 +46,6 @@ end)
 -- REMOVE EFFECTS (BOOST FPS)
 -- =========================
 
--- Lighting giảm hiệu ứng
 Lighting.GlobalShadows = false
 Lighting.FogEnd = 100000
 Lighting.Brightness = 1
@@ -57,7 +56,6 @@ for _,v in ipairs(Lighting:GetDescendants()) do
     end)
 end
 
--- Xóa effect trong workspace
 local function removeFX(v)
     pcall(function()
         if v:IsA("ParticleEmitter")
@@ -72,10 +70,27 @@ local function removeFX(v)
     end)
 end
 
-for _,v in ipairs(workspace:GetDescendants()) do
-    removeFX(v)
+-- =========================
+-- HIDE BASEPART (MAP + OBJECTS)
+-- =========================
+
+local function hidePart(v)
+    pcall(function()
+        if v:IsA("BasePart") then
+            v.Transparency = 1
+            v.CanCollide = false
+        end
+    end)
 end
 
+-- map hiện tại
+for _,v in ipairs(workspace:GetDescendants()) do
+    removeFX(v)
+    hidePart(v)
+end
+
+-- object spawn mới
 workspace.DescendantAdded:Connect(function(v)
     removeFX(v)
+    hidePart(v)
 end)
