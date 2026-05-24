@@ -22,190 +22,57 @@ RunService.RenderStepped:Connect(function()
         last = now
     end
 end)
-
-if getgenv().UltraBoostLoaded then
-    return
-end
-getgenv().UltraBoostLoaded = true
-
-local Players = game:GetService("Players")
-local Workspace = game:GetService("Workspace")
-local Lighting = game:GetService("Lighting")
-local Terrain = Workspace:FindFirstChildOfClass("Terrain")
-
-pcall(function()
-    settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
-end)
-
-Lighting.GlobalShadows = false
-Lighting.Brightness = 0
-Lighting.EnvironmentDiffuseScale = 0
-Lighting.EnvironmentSpecularScale = 0
-Lighting.FogEnd = 9e9
-
-pcall(function()
-    Terrain.WaterWaveSize = 0
-    Terrain.WaterWaveSpeed = 0
-    Terrain.WaterReflectance = 0
-    Terrain.WaterTransparency = 1
-end)
-
-local Remove = {
-    -- Effects
-    ParticleEmitter = true,
-    Trail = true,
-    Beam = true,
-    Smoke = true,
-    Fire = true,
-    Sparkles = true,
-    Explosion = true,
-
-    -- Visual
-    Highlight = true,
-    Atmosphere = true,
-    Sky = true,
-
-    -- Lighting
-    BloomEffect = true,
-    BlurEffect = true,
-    SunRaysEffect = true,
-    ColorCorrectionEffect = true,
-    DepthOfFieldEffect = true,
-
-    -- Textures
-    Decal = true,
-    Texture = true,
-    SurfaceAppearance = true,
-
-    -- Extra
-    RopeConstraint = true,
-    ClothConstraint = true
-}
-
-local function IsCharacterPart(v)
-    local mdl = v:FindFirstAncestorWhichIsA("Model")
-    return mdl and Players:GetPlayerFromCharacter(mdl)
-end
-
-local function Optimize(v)
-
-    -- Destroy heavy objects
-    if Remove[v.ClassName] then
-        pcall(function()
-            v:Destroy()
-        end)
-        return
-    end
-
-    -- Invisible map
-    if v:IsA("BasePart") then
-
-        if not IsCharacterPart(v) then
-            pcall(function()
-                v.Transparency = 1
-                v.CastShadow = false
-                v.Material = Enum.Material.SmoothPlastic
-                v.Reflectance = 0
-            end)
-        else
-            -- remove player aura/effects
-            pcall(function()
-                v.CastShadow = false
-            end)
+for _,v in next, workspace:GetDescendants() do
+    pcall(function()
+        if v:IsA("BasePart") then
+            v.Transparency = 1
         end
-    end
+    end)
+end
 
-    -- Mesh optimize
-    if v:IsA("MeshPart") then
-        pcall(function()
-            v.TextureID = ""
-            v.RenderFidelity = Enum.RenderFidelity.Performance
-        end)
-    end
+for _,v in next, getnilinstances() do
+    pcall(function()
+        if v:IsA("BasePart") then
+            v.Transparency = 1
+        end
 
-    -- Remove animations
-    if v:IsA("Animator") then
-        pcall(function()
-            v:Destroy()
-        end)
-    end
-
-    if v:IsA("AnimationController") then
-        pcall(function()
-            v:Destroy()
-        end)
-    end
-
-    if v:IsA("Animation") then
-        pcall(function()
-            v:Destroy()
-        end)
-    end
-
-    -- Stop animations
-    if v:IsA("Humanoid") then
-        pcall(function()
-            for _, track in ipairs(v:GetPlayingAnimationTracks()) do
-                track:Stop()
+        for _,v1 in next, v:GetDescendants() do
+            if v1:IsA("BasePart") then
+                v1.Transparency = 1
             end
-        end)
+        end
+    end)
+end
+
+workspace.DescendantAdded:Connect(function(v)
+    pcall(function()
+        if v:IsA("BasePart") then
+            v.Transparency = 1
+        end
+    end)
+end)
+local function removeEffects(obj)
+    if obj:IsA("ParticleEmitter")
+    or obj:IsA("Trail")
+    or obj:IsA("Smoke")
+    or obj:IsA("Fire")
+    or obj:IsA("Beam") then
+        obj:Destroy()
     end
 
-    -- Remove sounds
-    if v:IsA("Sound") then
-        pcall(function()
-            v.Volume = 0
-            v.Playing = false
-        end)
+    if obj:IsA("PointLight")
+    or obj:IsA("SpotLight")
+    or obj:IsA("SurfaceLight") then
+        obj:Destroy()
+    end
+
+    if obj:IsA("PostEffect") then
+        obj.Enabled = false
     end
 end
 
 for _, v in ipairs(game:GetDescendants()) do
-    task.spawn(function()
-        Optimize(v)
-    end)
+    removeEffects(v)
 end
 
-game.DescendantAdded:Connect(function(v)
-    task.spawn(function()
-        Optimize(v)
-    end)
-end)
-
-task.spawn(function()
-    while true do
-        task.wait(2)
-
-        for _, plr in ipairs(Players:GetPlayers()) do
-            if plr.Character then
-
-                -- stop animations repeatedly
-                local hum = plr.Character:FindFirstChildOfClass("Humanoid")
-
-                if hum then
-                    pcall(function()
-                        for _, track in ipairs(hum:GetPlayingAnimationTracks()) do
-                            track:Stop()
-                        end
-                    end)
-                end
-
-                for _, v in ipairs(plr.Character:GetDescendants()) do
-                    Optimize(v)
-                end
-            end
-        end
-    end
-end)
-
-task.spawn(function()
-    while true do
-        task.wait(20)
-
-        collectgarbage("collect")
-
-        pcall(function()
-            setfpscap(10)
-        end)
-    end
-end)
+game.DescendantAdded:Connect(removeEffects)
