@@ -1,0 +1,29 @@
+for _,v in next, workspace:GetDescendants() do
+    pcall(function()
+        if v:IsA("BasePart") then
+            v.Transparency = 1
+        end
+    end)
+end
+
+for _,v in next, getnilinstances() do
+    pcall(function()
+        if v:IsA("BasePart") then
+            v.Transparency = 1
+        end
+
+        for _,v1 in next, v:GetDescendants() do
+            if v1:IsA("BasePart") then
+                v1.Transparency = 1
+            end
+        end
+    end)
+end
+
+workspace.DescendantAdded:Connect(function(v)
+    pcall(function()
+        if v:IsA("BasePart") then
+            v.Transparency = 1
+        end
+    end)
+end)
