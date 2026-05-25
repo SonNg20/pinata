@@ -76,3 +76,4 @@ for _, v in ipairs(game:GetDescendants()) do
 end
 
 game.DescendantAdded:Connect(removeEffects)
+setfpscap(15)
