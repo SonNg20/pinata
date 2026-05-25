@@ -1,3 +1,22 @@
+local Players = game:GetService("Players")
+local TeleportService = game:GetService("TeleportService")
+
+local PLACE_ID = 8737899170   ---------thay id
+local MAX_PLAYERS = 4         ---------max player
+
+local function hop()
+    pcall(function()
+        TeleportService:Teleport(PLACE_ID, Players.LocalPlayer)
+    end)
+end
+
+while task.wait(10) do
+    if #Players:GetPlayers() > MAX_PLAYERS then
+        hop()
+        task.wait(20)
+    end
+end
+wait(15)
 getgenv().Config = {
     ['Areas'] = {
         "2 | Colorful Forest",
