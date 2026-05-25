@@ -1,0 +1,173 @@
+getgenv().Config = {
+    ['Areas'] = {
+        "2 | Colorful Forest",
+        "3 | Castle",
+        "4 | Green Forest",
+        "5 | Autumn",
+        "6 | Cherry Blossom",
+    }
+}
+
+local HttpService = game:GetService("HttpService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = game.Players.LocalPlayer
+
+local Library = ReplicatedStorage.Library
+local Client = ReplicatedStorage.Library.Client
+
+local Network = require(Client.Network)
+local Save = require(Client.Save)
+
+local Breakables = workspace['__THINGS'].Breakables
+local Map = workspace:FindFirstChild("Map") or workspace:FindFirstChild("Map2") or workspace:FindFirstChild("Map3")
+local Areas = {}
+
+-- Quét danh sách Map
+for _, v in ipairs(Config.Areas) do
+    local Area = Map and Map:FindFirstChild(v)
+    if Area then 
+        table.insert(Areas, Area)
+    else 
+        warn("Area not found: " .. v) 
+    end
+end
+
+-- Chống AFK
+game.Players.LocalPlayer.PlayerScripts.Scripts.Core["Idle Tracking"].Enabled = false
+game.Players.LocalPlayer.Idled:Connect(function() 
+    game:GetService("VirtualUser"):Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame) 
+    task.wait(1) 
+    game:GetService("VirtualUser"):Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame) 
+end)
+
+-- Tự động hút túi quà
+workspace.__THINGS:FindFirstChild("Lootbags").ChildAdded:Connect(function(lootbag) 
+    task.wait() 
+    if lootbag then Network.Fire("Lootbags_Claim", { lootbag.Name }) end 
+end)
+
+-- Hack tốc độ Pet
+hookfunction(require(Client.PlayerPet).CalculateSpeedMultiplier, function() return 9999 end)
+
+-- Tự động hút Orbs
+Network.Fired("Orbs: Create"):Connect(function(InfoTable)
+    local Orbs = {}
+    for _, v in ipairs(InfoTable) do table.insert(Orbs, v.id) end
+    Network.Fire("Orbs: Collect", Orbs)
+end)
+
+-- Hàm lấy UID của Mini Piñata trong túi đồ của bạn
+local PinataUid = nil
+local GetPinataUID = function()
+    local Misc = Save.Get().Inventory.Misc
+    if PinataUid then
+        local Entry = Misc[PinataUid]
+        if Entry and Entry.id == "Mini Pinata" then return PinataUid end
+        PinataUid = nil
+    end
+    for uid, v in pairs(Misc) do
+        if v.id == "Mini Pinata" then PinataUid = uid return uid end
+    end
+    return nil
+end
+
+-- Hàm tìm xem trên sân của Map hiện tại có con Piñata nào không
+local function GetPinataInArea(areaName)
+    for _, v in pairs(Breakables:GetChildren()) do
+        if v:IsA("Model") and v:GetAttribute("BreakableID") == "Pinata" then
+            -- Kiểm tra xem Piñata thuộc map này không (qua Attribute hoặc tên)
+            if v:GetAttribute("AreaID") == areaName or string.find(v.Name, areaName) then
+                return v
+            end
+        end
+    end
+    return nil
+end
+
+-- Hàm đập Piñata
+local function AttackPinata(pinataModel)
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp or not pinataModel:Parent() then return false end
+
+    local pos = pinataModel:GetPivot().Position
+    local dist = (pos - hrp.Position).Magnitude
+
+    if dist <= 300 then
+        Network.UnreliableFire("Breakables_PlayerDealDamage", pinataModel.Name)
+        return true
+    end
+    return false
+end
+
+-- VÒNG LẶP CHÍNH: Duyệt từng Map -> Check/Đặt Piñata -> Đập -> Đổi Map
+task.spawn(function()
+    while true do
+        for _, area in ipairs(Areas) do
+            local areaName = area.Name
+            print("--- Đang tới khu vực: " .. areaName .. " ---")
+
+            -- 1. Dịch chuyển đến Map
+            if not area:FindFirstChild("INTERACT") then 
+                repeat 
+                    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                        LocalPlayer.Character.HumanoidRootPart.CFrame = area.PERSISTENT.Teleport.CFrame 
+                    end
+                    task.wait(0.2) 
+                until area:FindFirstChild("INTERACT") 
+            end
+            
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                LocalPlayer.Character.HumanoidRootPart.CFrame = area.INTERACT.BREAK_ZONES.BREAK_ZONE.CFrame
+            end
+            task.wait(0.5) -- Chờ map ổn định
+
+            -- 2. Kiểm tra xem trên sân ĐÃ CÓ Piñata chưa
+            local pinata = GetPinataInArea(areaName)
+
+            -- 3. Nếu chưa có, tiến hành lấy trong Inventory ra đặt
+            if not pinata then
+                local currentUid = GetPinataUID()
+                if currentUid then
+                    print("Không có Piñata sẵn. Tiến hành đặt 1 Mini Piñata từ túi đồ...")
+                    local success, msg = Network.Invoke("MiniPinata_Consume", currentUid)
+                    
+                    -- Nếu đặt thất bại do lỗi có sự kiện khác đang diễn ra, thử lại vài lần
+                    if not success and msg ~= "There is already something in this area!" and msg ~= "There are too many random events already in the world!" then 
+                        local retries = 0
+                        repeat 
+                            task.wait(0.3)
+                            currentUid = GetPinataUID()
+                            if currentUid then
+                                success, msg = Network.Invoke("MiniPinata_Consume", currentUid)
+                            end
+                            retries = retries + 1
+                        until success or retries >= 3
+                    end
+                    
+                    task.wait(0.5) -- Đợi Piñata xuất hiện trên workspace
+                    pinata = GetPinataInArea(areaName) -- Cập nhật lại biến pinata sau khi đặt
+                else
+                    print("Hết sạch Mini Piñata trong túi đồ!")
+                end
+            else
+                print("Phát hiện có sẵn Piñata trên sân (không cần tốn Piñata trong túi)!")
+            end
+
+            -- 4. Nếu có Piñata (dù là có sẵn hay vừa đặt ra), đứng lại đập nát mới đi
+            if pinata then
+                print("Bắt đầu đập Piñata...")
+                while pinata and pinata:Parent() do
+                    AttackPinata(pinata)
+                    task.wait(0.05) -- Tốc độ đập
+                end
+                print("Đã đập xong Piñata tại " .. areaName)
+            else
+                print("Không có Piñata để đập tại khu vực này. Bỏ qua!")
+            end
+
+            task.wait(0.5) -- Nghỉ ngắn rồi nhảy sang Map tiếp theo trong danh sách Config
+        end
+        task.wait(1) -- Quét xong tất cả các Map trong config thì nghỉ 1 giây rồi lặp lại từ Map đầu tiên
+    end
+end)
