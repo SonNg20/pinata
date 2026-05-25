@@ -2,7 +2,7 @@ local Players = game:GetService("Players")
 local TeleportService = game:GetService("TeleportService")
 
 local PLACE_ID = 8737899170   ---------thay id
-local MAX_PLAYERS = 4         ---------max player
+local MAX_PLAYERS = 6         ---------max player
 
 local function hop()
     pcall(function()
