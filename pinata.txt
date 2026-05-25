@@ -1,3 +1,4 @@
+wait(30)
 getgenv().Config = {
     ['Areas'] = {
         "2 | Colorful Forest",
@@ -10,10 +11,8 @@ getgenv().Config = {
 
 local HttpService = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TeleportService = game:GetService("TeleportService")
-local Players = game:GetService("Players")
 
-local LocalPlayer = Players.LocalPlayer
+local LocalPlayer = game.Players.LocalPlayer
 
 local Library = ReplicatedStorage.Library
 local Client = ReplicatedStorage.Library.Client
@@ -25,23 +24,87 @@ local Breakables = workspace['__THINGS'].Breakables
 local Map = workspace:FindFirstChild("Map") or workspace:FindFirstChild("Map2") or workspace:FindFirstChild("Map3")
 local Areas = {}
 
--- Cấu hình ID Game để Hop Server
-local PLACE_ID = 8737899170
-
 for _,v in ipairs(Config.Areas) do
     local Area = Map and Map:FindFirstChild(v)
     if Area then table.insert(Areas, Area)
     else warn("Area not found: " .. v) end
 end
 
--- Hàm Hop Server theo yêu cầu của bạn
-local function hop()
-    print("Đang tiến hành hop server...")
-    pcall(function()
-        TeleportService:Teleport(PLACE_ID, LocalPlayer)
-    end)
-end
-
 game.Players.LocalPlayer.PlayerScripts.Scripts.Core["Idle Tracking"].Enabled = false; game.Players.LocalPlayer.Idled:connect(function() game:GetService("VirtualUser"):Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame) task.wait(1) game:GetService("VirtualUser"):Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame) end)
 workspace.__THINGS:FindFirstChild("Lootbags").ChildAdded:Connect(function(lootbag) task.wait() if lootbag then Network.Fire("Lootbags_Claim", { lootbag.Name }) end end)
-hookfunction(require(Client.PlayerPet).Calculate
+hookfunction(require(Client.PlayerPet).CalculateSpeedMultiplier,function() return 9999 end)
+Network.Fired("Orbs: Create"):Connect(function(InfoTable)
+    local Orbs = {}
+    for _, v in ipairs(InfoTable) do table.insert(Orbs, v.id) end
+    Network.Fire("Orbs: Collect", Orbs)
+end)
+
+task.spawn(function()
+    while task.wait() do
+        local char = LocalPlayer.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if not hrp then continue end
+
+        for _, v in pairs(Breakables:GetChildren()) do
+            if v:IsA("Model") and v:GetAttribute("BreakableID") == "Pinata" then
+                local pos = v:GetPivot().Position
+                local dist = (pos - hrp.Position).Magnitude
+
+                if dist <= 300 then
+                    Network.UnreliableFire("Breakables_PlayerDealDamage", v.Name)
+                    task.wait(0.05)
+                end
+            end
+        end
+    end
+end)
+
+local PinataUid = nil
+local GetPinataUID = function()
+    local Misc = Save.Get().Inventory.Misc
+    if PinataUid then
+        local Entry = Misc[PinataUid]
+        if Entry and Entry.id == "Mini Pinata" then return PinataUid end
+        PinataUid = nil
+    end
+    for uid, v in pairs(Misc) do
+        if v.id == "Mini Pinata" then PinataUid = uid return uid end
+    end
+    return nil
+end
+
+while task.wait() do
+    if GetPinataUID() then
+        for _, v in pairs(Areas) do
+            if not v:FindFirstChild("INTERACT") then repeat LocalPlayer.Character.HumanoidRootPart.CFrame = v.PERSISTENT.Teleport.CFrame task.wait(0.1) until v:FindFirstChild("INTERACT") end
+            LocalPlayer.Character.HumanoidRootPart.CFrame = v.INTERACT.BREAK_ZONES.BREAK_ZONE.CFrame
+            a,e = Network.Invoke("MiniPinata_Consume", GetPinataUID())
+            if not a and msg ~= "There is already something in this area!" or msg ~= "There are too many random events already in the world!" then 
+                repeat a,e = Network.Invoke("MiniPinata_Consume", GetPinataUID()) task.wait(0.1) until a
+            end
+            Network.Invoke("MiniPinata_Consume", GetPinataUID())
+        end
+    else
+        print("No pinata") break
+    end
+end
+local Workspace = game:GetService("Workspace")
+
+-- Vòng lặp kiểm tra toàn bộ thế giới game
+for _, v in pairs(Workspace:GetDescendants()) do
+    -- Kiểm tra nếu là ảnh 2D lơ lửng (BillboardGui) có tên chứa chữ "Coin"
+    if v:IsA("BillboardGui") and v.Name:lower():find("coin") then
+        v:Destroy()
+    -- Hoặc nếu các đồng xu là các mô hình 3D (MeshPart/Part)
+    elseif v:IsA("MeshPart") and v.Name:lower():find("coin") then
+        v:Destroy()
+    end
+end
+
+-- Tự động xóa các Icon Coin mới xuất hiện sau đó
+Workspace.DescendantAdded:Connect(function(v)
+    task.wait() -- Chờ 1 chút để object tải xong
+    if (v:IsA("BillboardGui") or v:IsA("ImageLabel") or v:IsA("MeshPart")) and v.Name:lower():find("coin") then
+        v:Destroy()
+    end
+end)
