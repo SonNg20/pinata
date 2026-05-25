@@ -108,3 +108,15 @@ Workspace.DescendantAdded:Connect(function(v)
         v:Destroy()
     end
 end)
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+-- Tìm tất cả các UI có tên liên quan đến "Coin" hoặc "CoinIcon" và xóa/ẩn đi
+for _, v in pairs(PlayerGui:GetDescendants()) do
+    -- Thay "Coin" bằng tên chính xác của Icon hoặc Khung chứa icon trong game của bạn
+    if v:IsA("ImageLabel") and (v.Name:lower():find("coin") or v.Name:lower():find("money")) then
+        v:Destroy() -- Xóa hoàn toàn
+        -- Hoặc dùng: v.Visible = false (nếu chỉ muốn ẩn đi)
+    end
+end
