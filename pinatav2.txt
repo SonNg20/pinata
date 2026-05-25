@@ -1,3 +1,4 @@
+wait(15)
 getgenv().Config = {
     ['Areas'] = {
         "2 | Colorful Forest",
