@@ -1,5 +1,5 @@
 local states = {
-    TNT = false
+    TNT = true
 }
 
 -- GUI
@@ -46,7 +46,7 @@ task.spawn(function()
         end
     end
 end)
-wait(10)
+wait(45)
 getgenv().Config = {
     ['Areas'] = {
         "4 | Green Forest",
