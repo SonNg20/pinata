@@ -1,3 +1,51 @@
+local states = {
+    TNT = false
+}
+
+-- GUI
+local ScreenGui = Instance.new("ScreenGui")
+local Button = Instance.new("TextButton")
+
+ScreenGui.Parent = game.CoreGui
+
+Button.Parent = ScreenGui
+Button.Size = UDim2.new(0, 90, 0, 30)
+Button.Position = UDim2.new(0, 10, 0, 200)
+
+Button.Font = Enum.Font.FredokaOne
+Button.TextSize = 14
+Button.TextColor3 = Color3.new(1,1,1)
+Button.BorderSizePixel = 0
+
+local function updateButton()
+    if states.TNT then
+        Button.Text = "TNT : ON"
+        Button.BackgroundColor3 = Color3.fromRGB(0,170,0)
+    else
+        Button.Text = "TNT : OFF"
+        Button.BackgroundColor3 = Color3.fromRGB(170,0,0)
+    end
+end
+
+updateButton()
+
+Button.MouseButton1Click:Connect(function()
+    states.TNT = not states.TNT
+    updateButton()
+end)
+
+-- Loop TNT
+task.spawn(function()
+    while true do
+        if states.TNT then
+            game:GetService("ReplicatedStorage"):WaitForChild("Network"):WaitForChild("TNT_Crate_Consume"):InvokeServer()
+
+            task.wait(30)
+        else
+            task.wait(0.5)
+        end
+    end
+end)
 wait(10)
 getgenv().Config = {
     ['Areas'] = {
