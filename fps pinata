@@ -1,0 +1,115 @@
+--// EXTREME FPS BOOST (không destroy BasePart)
+--// Tắt effect, animation, texture, shadow...
+
+local Lighting = game:GetService("Lighting")
+local Terrain = workspace:FindFirstChildOfClass("Terrain")
+
+-- FPS cap nhẹ máy
+pcall(function()
+	setfpscap(60)
+end)
+
+-- =========================
+-- LIGHTING
+-- =========================
+Lighting.GlobalShadows = false
+Lighting.FogEnd = 9e9
+Lighting.Brightness = 0
+
+settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+
+pcall(function()
+	for _,v in pairs(Lighting:GetChildren()) do
+		if v:IsA("BlurEffect")
+		or v:IsA("SunRaysEffect")
+		or v:IsA("ColorCorrectionEffect")
+		or v:IsA("BloomEffect")
+		or v:IsA("DepthOfFieldEffect") then
+			v.Enabled = false
+		end
+	end
+end)
+
+-- =========================
+-- TERRAIN
+-- =========================
+if Terrain then
+	Terrain.WaterWaveSize = 0
+	Terrain.WaterWaveSpeed = 0
+	Terrain.WaterReflectance = 0
+	Terrain.WaterTransparency = 0
+end
+
+-- =========================
+-- OPTIMIZE OBJECTS
+-- =========================
+for _,v in pairs(game:GetDescendants()) do
+
+	-- Tắt particle/effect
+	if v:IsA("ParticleEmitter")
+	or v:IsA("Trail")
+	or v:IsA("Smoke")
+	or v:IsA("Fire")
+	or v:IsA("Sparkles") then
+
+		v.Enabled = false
+	end
+
+	-- Tắt decal/texture
+	if v:IsA("Decal")
+	or v:IsA("Texture") then
+
+		v.Transparency = 1
+	end
+
+	-- BasePart tối ưu
+	if v:IsA("BasePart") then
+		v.Material = Enum.Material.Plastic
+		v.Reflectance = 0
+		v.CastShadow = false
+	end
+
+	-- Mesh giảm render
+	if v:IsA("MeshPart") then
+		v.TextureID = ""
+	end
+
+	-- Tắt animation
+	if v:IsA("AnimationController")
+	or v:IsA("Animator") then
+		v:Destroy()
+	end
+end
+
+-- =========================
+-- AUTO OPTIMIZE NEW OBJECTS
+-- =========================
+game.DescendantAdded:Connect(function(v)
+
+	if v:IsA("ParticleEmitter")
+	or v:IsA("Trail")
+	or v:IsA("Smoke")
+	or v:IsA("Fire")
+	or v:IsA("Sparkles") then
+
+		v.Enabled = false
+	end
+
+	if v:IsA("Decal")
+	or v:IsA("Texture") then
+
+		v.Transparency = 1
+	end
+
+	if v:IsA("BasePart") then
+		v.Material = Enum.Material.Plastic
+		v.Reflectance = 0
+		v.CastShadow = false
+	end
+
+	if v:IsA("MeshPart") then
+		v.TextureID = ""
+	end
+end)
+
+print("FPS BOOST LOADED")
