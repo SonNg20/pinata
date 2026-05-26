@@ -122,3 +122,53 @@ while true do
 		character.Humanoid.Jump = true
 	end
 end
+wait(1)
+-- Auto Collect Orb / Coin / Lootbag
+
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+
+-- bật / tắt
+local AutoCollect = true
+
+while task.wait(0.2) do
+	if AutoCollect then
+
+		-- Coin / Orb
+		pcall(function()
+			for _,v in pairs(Workspace.__THINGS.Orbs:GetChildren()) do
+				firetouchinterest(
+					LocalPlayer.Character.HumanoidRootPart,
+					v,
+					0
+				)
+
+				firetouchinterest(
+					LocalPlayer.Character.HumanoidRootPart,
+					v,
+					1
+				)
+			end
+		end)
+
+		-- Lootbag
+		pcall(function()
+			for _,v in pairs(Workspace.__THINGS.Lootbags:GetChildren()) do
+				firetouchinterest(
+					LocalPlayer.Character.HumanoidRootPart,
+					v,
+					0
+				)
+
+				firetouchinterest(
+					LocalPlayer.Character.HumanoidRootPart,
+					v,
+					1
+				)
+			end
+		end)
+
+	end
+end
