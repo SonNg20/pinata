@@ -1,11 +1,11 @@
 wait(10)
 getgenv().Config = {
     ['Areas'] = {
-        "2 | Colorful Forest",
-        "3 | Castle",
         "4 | Green Forest",
         "5 | Autumn",
         "6 | Cherry Blossom",
+        "7 | Farm",
+        "3 | Backyard",
     }
 }
 
