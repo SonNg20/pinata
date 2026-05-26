@@ -26,58 +26,54 @@ RunService.RenderStepped:Connect(function()
         last = now
     end
 end)
-for _,v in next, workspace:GetDescendants() do
+
+-- Hàm ẩn BasePart và Decal/Texture (Đặt Transparency = 1 thay vì hủy)
+local function hideVisuals(v)
     pcall(function()
         if v:IsA("BasePart") then
+            v.Transparency = 1
+        elseif v:IsA("Decal") or v:IsA("Texture") then
             v.Transparency = 1
         end
     end)
 end
 
-for _,v in next, getnilinstances() do
+-- Hàm tắt hiệu ứng (Đặt Enabled = false thay vì Destroy)
+local function disableEffects(obj)
     pcall(function()
-        if v:IsA("BasePart") then
-            v.Transparency = 1
-        end
-
-        for _,v1 in next, v:GetDescendants() do
-            if v1:IsA("BasePart") then
-                v1.Transparency = 1
-            end
+        if obj:IsA("ParticleEmitter")
+        or obj:IsA("Trail")
+        or obj:IsA("Smoke")
+        or obj:IsA("Fire")
+        or obj:IsA("Beam")
+        or obj:IsA("PointLight")
+        or obj:IsA("SpotLight")
+        or obj:IsA("SurfaceLight") then
+            obj.Enabled = false
+        elseif obj:IsA("PostEffect") then
+            obj.Enabled = false
         end
     end)
 end
 
-workspace.DescendantAdded:Connect(function(v)
-    pcall(function()
-        if v:IsA("BasePart") then
-            v.Transparency = 1
-        end
-    end)
-end)
-local function removeEffects(obj)
-    if obj:IsA("ParticleEmitter")
-    or obj:IsA("Trail")
-    or obj:IsA("Smoke")
-    or obj:IsA("Fire")
-    or obj:IsA("Beam") then
-        obj:Destroy()
-    end
-
-    if obj:IsA("PointLight")
-    or obj:IsA("SpotLight")
-    or obj:IsA("SurfaceLight") then
-        obj:Destroy()
-    end
-
-    if obj:IsA("PostEffect") then
-        obj.Enabled = false
-    end
-end
-
+-- Quét toàn bộ map hiện tại
 for _, v in ipairs(game:GetDescendants()) do
-    removeEffects(v)
+    hideVisuals(v)
+    disableEffects(v)
 end
 
-game.DescendantAdded:Connect(removeEffects)
+-- Quét các đối tượng nil (lạc hướng)
+for _, v in next, getnilinstances() do
+    hideVisuals(v)
+    pcall(function()
+        for _, v1 in next, v:GetDescendants() do
+            hideVisuals(v1)
+        end
+    end)
+end
 
+-- Lắng nghe các đối tượng mới sinh ra trong game để ẩn/tắt lập tức
+game.DescendantAdded:Connect(function(v)
+    hideVisuals(v)
+    disableEffects(v)
+end)
