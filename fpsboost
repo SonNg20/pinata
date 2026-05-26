@@ -1,7 +1,3 @@
-if not game:IsLoaded() then
-    game.Loaded:Wait()
-end
-setfpscap(20)
 local RunService = game:GetService("RunService")
 local player = game.Players.LocalPlayer
 local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
@@ -27,83 +23,189 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- Hàm ẩn BasePart và Decal/Texture (Đặt Transparency = 1 thay vì hủy)
-local function hideVisuals(v)
-    pcall(function()
-        if v:IsA("BasePart") then
-            v.Transparency = 1
-        elseif v:IsA("Decal") or v:IsA("Texture") then
-            v.Transparency = 1
-        end
-    end)
+if getgenv().UltraBoostLoaded then
+    return
 end
+getgenv().UltraBoostLoaded = true
 
--- Hàm tắt hiệu ứng (Đặt Enabled = false thay vì Destroy)
-local function disableEffects(obj)
-    pcall(function()
-        if obj:IsA("ParticleEmitter")
-        or obj:IsA("Trail")
-        or obj:IsA("Smoke")
-        or obj:IsA("Fire")
-        or obj:IsA("Beam")
-        or obj:IsA("PointLight")
-        or obj:IsA("SpotLight")
-        or obj:IsA("SurfaceLight") then
-            obj.Enabled = false
-        elseif obj:IsA("PostEffect") then
-            obj.Enabled = false
-        end
-    end)
-end
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local Lighting = game:GetService("Lighting")
+local Terrain = Workspace:FindFirstChildOfClass("Terrain")
 
--- Quét toàn bộ map hiện tại
-for _, v in ipairs(game:GetDescendants()) do
-    hideVisuals(v)
-    disableEffects(v)
-end
-
--- Quét các đối tượng nil (lạc hướng)
-for _, v in next, getnilinstances() do
-    hideVisuals(v)
-    pcall(function()
-        for _, v1 in next, v:GetDescendants() do
-            hideVisuals(v1)
-        end
-    end)
-end
-
--- Lắng nghe các đối tượng mới sinh ra trong game để ẩn/tắt lập tức
-game.DescendantAdded:Connect(function(v)
-    hideVisuals(v)
-    disableEffects(v)
+pcall(function()
+    settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
 end)
--- Vòng lặp xóa vật phẩm rơi (Loot/Dropped Items) và text để giảm lag
-task.spawn(function()
-    local Workspace = game:GetService("Workspace")
-    
-    while true do
-        -- 1. Tìm và xóa các Model/Part của vật phẩm rơi trên map
-        -- (Thường nằm trong 'Debris', 'DroppedItems', 'Loot' hoặc trực tiếp ngoài Workspace tùy phiên bản game)
-        for _, obj in pairs(Workspace:GetChildren()) do
-            if obj:IsA("Model") and (obj.Name:find("Diamond") or obj.Name:find("Flag") or obj.Name:find("Loot") or obj.Name:find("Item")) then
-                obj:Destroy()
-            end
-        end
-        
-        -- Nếu game lưu vật phẩm trong thư mục Debris hoặc Thư mục riêng biệt
-        if Workspace:FindFirstChild("Debris") then
-            for _, obj in pairs(Workspace.Debris:GetChildren()) do
-                obj:Destroy()
-            end
-        end
 
-        -- 2. Xóa các bảng tên, thanh máu hoặc hiệu ứng chữ hiển thị trên sàn
-        for _, v in pairs(Workspace:GetDescendants()) do
-            if v:IsA("BillboardGui") or v:IsA("SurfaceGui") then
-                v:Destroy()
+Lighting.GlobalShadows = false
+Lighting.Brightness = 0
+Lighting.EnvironmentDiffuseScale = 0
+Lighting.EnvironmentSpecularScale = 0
+Lighting.FogEnd = 9e9
+
+pcall(function()
+    Terrain.WaterWaveSize = 0
+    Terrain.WaterWaveSpeed = 0
+    Terrain.WaterReflectance = 0
+    Terrain.WaterTransparency = 1
+end)
+
+local Remove = {
+    -- Effects
+    ParticleEmitter = true,
+    Trail = true,
+    Beam = true,
+    Smoke = true,
+    Fire = true,
+    Sparkles = true,
+    Explosion = true,
+
+    -- Visual
+    Highlight = true,
+    Atmosphere = true,
+    Sky = true,
+
+    -- Lighting
+    BloomEffect = true,
+    BlurEffect = true,
+    SunRaysEffect = true,
+    ColorCorrectionEffect = true,
+    DepthOfFieldEffect = true,
+
+    -- Textures
+    Decal = true,
+    Texture = true,
+    SurfaceAppearance = true,
+
+    -- Extra
+    RopeConstraint = true,
+    ClothConstraint = true
+}
+
+local function IsCharacterPart(v)
+    local mdl = v:FindFirstAncestorWhichIsA("Model")
+    return mdl and Players:GetPlayerFromCharacter(mdl)
+end
+
+local function Optimize(v)
+
+    -- Destroy heavy objects
+    if Remove[v.ClassName] then
+        pcall(function()
+            v:Destroy()
+        end)
+        return
+    end
+
+    -- Invisible map
+    if v:IsA("BasePart") then
+
+        if not IsCharacterPart(v) then
+            pcall(function()
+                v.Transparency = 1
+                v.CastShadow = false
+                v.Material = Enum.Material.SmoothPlastic
+                v.Reflectance = 0
+            end)
+        else
+            -- remove player aura/effects
+            pcall(function()
+                v.CastShadow = false
+            end)
+        end
+    end
+
+    -- Mesh optimize
+    if v:IsA("MeshPart") then
+        pcall(function()
+            v.TextureID = ""
+            v.RenderFidelity = Enum.RenderFidelity.Performance
+        end)
+    end
+
+    -- Remove animations
+    if v:IsA("Animator") then
+        pcall(function()
+            v:Destroy()
+        end)
+    end
+
+    if v:IsA("AnimationController") then
+        pcall(function()
+            v:Destroy()
+        end)
+    end
+
+    if v:IsA("Animation") then
+        pcall(function()
+            v:Destroy()
+        end)
+    end
+
+    -- Stop animations
+    if v:IsA("Humanoid") then
+        pcall(function()
+            for _, track in ipairs(v:GetPlayingAnimationTracks()) do
+                track:Stop()
+            end
+        end)
+    end
+
+    -- Remove sounds
+    if v:IsA("Sound") then
+        pcall(function()
+            v.Volume = 0
+            v.Playing = false
+        end)
+    end
+end
+
+for _, v in ipairs(game:GetDescendants()) do
+    task.spawn(function()
+        Optimize(v)
+    end)
+end
+
+game.DescendantAdded:Connect(function(v)
+    task.spawn(function()
+        Optimize(v)
+    end)
+end)
+
+task.spawn(function()
+    while true do
+        task.wait(2)
+
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr.Character then
+
+                -- stop animations repeatedly
+                local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+
+                if hum then
+                    pcall(function()
+                        for _, track in ipairs(hum:GetPlayingAnimationTracks()) do
+                            track:Stop()
+                        end
+                    end)
+                end
+
+                for _, v in ipairs(plr.Character:GetDescendants()) do
+                    Optimize(v)
+                end
             end
         end
-        
-        task.wait(1) -- Quét lại sau mỗi 1 giây
+    end
+end)
+
+task.spawn(function()
+    while true do
+        task.wait(20)
+
+        collectgarbage("collect")
+
+        pcall(function()
+            setfpscap(20)
+        end)
     end
 end)
