@@ -90,26 +90,3 @@ while task.wait() do
     end
 end
 local Workspace = game:GetService("Workspace")
-
--- Vòng lặp kiểm tra toàn bộ thế giới game
-for _, v in pairs(Workspace:GetDescendants()) do
-    -- Kiểm tra nếu là ảnh 2D lơ lửng (BillboardGui) có tên chứa chữ "Coin"
-    if v:IsA("BillboardGui") and v.Name:lower():find("coin") then
-        v:Destroy()
-    -- Hoặc nếu các đồng xu là các mô hình 3D (MeshPart/Part)
-    elseif v:IsA("MeshPart") and v.Name:lower():find("coin") then
-        v:Destroy()
-    end
-end
-
--- Tự động xóa các Icon Coin mới xuất hiện sau đó
-Workspace.DescendantAdded:Connect(function(v)
-    task.wait() -- Chờ 1 chút để object tải xong
-    if (v:IsA("BillboardGui") or v:IsA("ImageLabel") or v:IsA("MeshPart")) and v.Name:lower():find("coin") then
-        v:Destroy()
-    end
-end)
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
-
