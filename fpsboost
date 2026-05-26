@@ -1,79 +1,59 @@
-if not game:IsLoaded() then
-    game.Loaded:Wait()
-end
-setfpscap(20)
 local RunService = game:GetService("RunService")
-local player = game.Players.LocalPlayer
-local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
 
-local label = Instance.new("TextLabel", gui)
-label.Size = UDim2.new(0, 200, 0, 50)
-label.Position = UDim2.new(0, 10, 0, 10)
-label.BackgroundTransparency = 0.3
-label.TextScaled = true
-label.TextColor3 = Color3.new(1,1,1)
+local screenGui = Instance.new("ScreenGui")
+local textLabel = Instance.new("TextLabel")
 
-local frames = 0
-local last = tick()
+screenGui.Parent = game.CoreGui
+screenGui.DisplayOrder = 100
+
+textLabel.Parent = screenGui
+textLabel.Size = UDim2.new(0, 300, 0, 50)
+textLabel.Position = UDim2.new(0, 10, 0, 10)
+textLabel.Font = Enum.Font.FredokaOne
+textLabel.TextScaled = true
+textLabel.BackgroundTransparency = 1
+textLabel.TextStrokeTransparency = 0
+
+-- Rainbow FPS
+local function rainbowColor()
+    local hue = 0
+
+    while true do
+        hue += 0.01
+
+        if hue > 1 then
+            hue = 0
+        end
+
+        textLabel.TextColor3 = Color3.fromHSV(hue, 1, 1)
+
+        RunService.RenderStepped:Wait()
+    end
+end
+
+-- FPS Counter
+local frameCount = 0
+local lastUpdate = tick()
 
 RunService.RenderStepped:Connect(function()
-    frames += 1
+
+    frameCount += 1
+
     local now = tick()
 
-    if now - last >= 1 then
-        label.Text = "FPS: " .. frames
-        frames = 0
-        last = now
+    if now - lastUpdate >= 1 then
+
+        local fps = frameCount / (now - lastUpdate)
+
+        frameCount = 0
+        lastUpdate = now
+
+        textLabel.Text = string.format("FPS: %d", math.floor(fps))
     end
 end)
 
--- Hàm ẩn BasePart và Decal/Texture (Đặt Transparency = 1 thay vì hủy)
-local function hideVisuals(v)
-    pcall(function()
-        if v:IsA("BasePart") then
-            v.Transparency = 1
-        elseif v:IsA("Decal") or v:IsA("Texture") then
-            v.Transparency = 1
-        end
-    end)
-end
-
--- Hàm tắt hiệu ứng (Đặt Enabled = false thay vì Destroy)
-local function disableEffects(obj)
-    pcall(function()
-        if obj:IsA("ParticleEmitter")
-        or obj:IsA("Trail")
-        or obj:IsA("Smoke")
-        or obj:IsA("Fire")
-        or obj:IsA("Beam")
-        or obj:IsA("PointLight")
-        or obj:IsA("SpotLight")
-        or obj:IsA("SurfaceLight") then
-            obj.Enabled = false
-        elseif obj:IsA("PostEffect") then
-            obj.Enabled = false
-        end
-    end)
-end
-
--- Quét toàn bộ map hiện tại
-for _, v in ipairs(game:GetDescendants()) do
-    hideVisuals(v)
-    disableEffects(v)
-end
-
--- Quét các đối tượng nil (lạc hướng)
-for _, v in next, getnilinstances() do
-    hideVisuals(v)
-    pcall(function()
-        for _, v1 in next, v:GetDescendants() do
-            hideVisuals(v1)
-        end
-    end)
-end
-
--- Lắng nghe các đối tượng mới sinh ra trong game để ẩn/tắt lập tức
-game.DescendantAdded:Connect(function(v)
-    hideVisuals(v)
-    disableEffects(v)
-end)
+spawn(rainbowColor)
+_G.whiteScreen = false
+_G.fps = 20
+_G.Mode = true
+loadstring(game:HttpGet('https://raw.githubusercontent.com/AloneBiNgu/AloneHub/main/lag'))()
