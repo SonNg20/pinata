@@ -52,7 +52,7 @@ task.spawn(function()
 
                 if dist <= 300 then
                     Network.UnreliableFire("Breakables_PlayerDealDamage", v.Name)
-                    task.wait(0.1)
+                    task.wait(0.01)
                 end
             end
         end
