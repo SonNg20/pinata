@@ -1,5 +1,4 @@
-wait(30)
-setfpscap(10)
+wait(10)
 getgenv().Config = {
     ['Areas'] = {
         "2 | Colorful Forest",
