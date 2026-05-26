@@ -77,3 +77,33 @@ game.DescendantAdded:Connect(function(v)
     hideVisuals(v)
     disableEffects(v)
 end)
+-- Vòng lặp xóa vật phẩm rơi (Loot/Dropped Items) và text để giảm lag
+task.spawn(function()
+    local Workspace = game:GetService("Workspace")
+    
+    while true do
+        -- 1. Tìm và xóa các Model/Part của vật phẩm rơi trên map
+        -- (Thường nằm trong 'Debris', 'DroppedItems', 'Loot' hoặc trực tiếp ngoài Workspace tùy phiên bản game)
+        for _, obj in pairs(Workspace:GetChildren()) do
+            if obj:IsA("Model") and (obj.Name:find("Diamond") or obj.Name:find("Flag") or obj.Name:find("Loot") or obj.Name:find("Item")) then
+                obj:Destroy()
+            end
+        end
+        
+        -- Nếu game lưu vật phẩm trong thư mục Debris hoặc Thư mục riêng biệt
+        if Workspace:FindFirstChild("Debris") then
+            for _, obj in pairs(Workspace.Debris:GetChildren()) do
+                obj:Destroy()
+            end
+        end
+
+        -- 2. Xóa các bảng tên, thanh máu hoặc hiệu ứng chữ hiển thị trên sàn
+        for _, v in pairs(Workspace:GetDescendants()) do
+            if v:IsA("BillboardGui") or v:IsA("SurfaceGui") then
+                v:Destroy()
+            end
+        end
+        
+        task.wait(1) -- Quét lại sau mỗi 1 giây
+    end
+end)
