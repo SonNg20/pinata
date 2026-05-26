@@ -1,0 +1,193 @@
+-- Khởi tạo Giao diện (UI)
+local ScreenGui = Instance.new("ScreenGui")
+local MainFrame = Instance.new("Frame")
+local UIListLayout = Instance.new("UIListLayout")
+local TitleFrame = Instance.new("Frame")
+local Title = Instance.new("TextLabel")
+local MinButton = Instance.new("TextButton")
+local Container = Instance.new("Frame")
+local ContainerLayout = Instance.new("UIListLayout")
+
+ScreenGui.Parent = game:GetService("CoreGui") -- Hoặc game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+ScreenGui.ResetOnSpawn = false
+
+-- Frame chính
+MainFrame.Name = "AutoItemUI"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+MainFrame.Position = UDim2.new(0, 20, 0.5, -120)
+MainFrame.Size = UDim2.new(0, 220, 0, 280)
+MainFrame.BorderSizePixel = 2
+MainFrame.Active = true
+MainFrame.Draggable = true
+
+UIListLayout.Parent = MainFrame
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+-- Thanh Tiêu đề (Chứa chữ và nút Thu nhỏ)
+TitleFrame.Name = "TitleFrame"
+TitleFrame.Parent = MainFrame
+TitleFrame.Size = UDim2.new(1, 0, 0, 35)
+TitleFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+
+Title.Parent = TitleFrame
+Title.Size = UDim2.new(0, 170, 1, 0)
+Title.Position = UDim2.new(0, 10, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "Auto Items Pro"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Font = Enum.Font.SourceSansBold
+Title.TextSize = 18
+Title.TextXAlignment = Enum.TextXAlignment.Left
+
+-- Nút Thu nhỏ (Minimize)
+MinButton.Parent = TitleFrame
+MinButton.Size = UDim2.new(0, 30, 0, 25)
+MinButton.Position = UDim2.new(1, -35, 0, 5)
+MinButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+MinButton.Text = "-"
+MinButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+MinButton.Font = Enum.Font.SourceSansBold
+MinButton.TextSize = 18
+
+-- Khung chứa các nút On/Off
+Container.Name = "Container"
+Container.Parent = MainFrame
+Container.Size = UDim2.new(1, 0, 1, -35)
+Container.BackgroundTransparency = 1
+
+ContainerLayout.Parent = Container
+ContainerLayout.SortOrder = Enum.SortOrder.LayoutOrder
+ContainerLayout.Padding = UDim.new(0, 5)
+
+-- Tính năng thu nhỏ UI
+local minimized = false
+MinButton.MouseButton1Click:Connect(function()
+    minimized = not minimized
+    if minimized then
+        Container.Visible = false
+        MainFrame.Size = UDim2.new(0, 220, 0, 35)
+        MinButton.Text = "+"
+    else
+        Container.Visible = true
+        MainFrame.Size = UDim2.new(0, 220, 0, 280)
+        MinButton.Text = "-"
+    end
+end)
+
+-- Biến trạng thái On/Off
+local states = {
+    TNT = false,
+    Sprinkler = false,
+    PartyBox = false,
+    Gift1 = false,
+    Gift2 = false
+}
+
+-- Hàm tạo các nút Toggle
+local function createToggle(name, stateKey)
+    local Button = Instance.new("TextButton")
+    Button.Parent = Container
+    Button.Size = UDim2.new(1, -10, 0, 40)
+    Button.Position = UDim2.new(0, 5, 0, 0)
+    Button.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
+    Button.Text = name .. ": OFF"
+    Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Button.Font = Enum.Font.SourceSansSemibold
+    Button.TextSize = 16
+
+    Button.MouseButton1Click:Connect(function()
+        states[stateKey] = not states[stateKey]
+        if states[stateKey] then
+            Button.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+            Button.Text = name .. ": ON"
+        else
+            Button.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
+            Button.Text = name .. ": OFF"
+        end
+    end)
+end
+
+-- Tạo các nút bấm trên UI
+createToggle("TNT Crate (10s)", "TNT")
+createToggle("Sprinkler (303s)", "Sprinkler")
+createToggle("Party Box (15s)", "PartyBox")
+createToggle("Craft Gift 1 (5s)", "Gift1")
+createToggle("Craft Gift 2 (5s)", "Gift2")
+
+-- ================= SYSTEM LOOPS =================
+
+-- Vòng lặp TNT Crate (10 giây)
+task.spawn(function()
+    while true do
+        if states.TNT then
+            game:GetService("ReplicatedStorage"):WaitForChild("Network"):WaitForChild("TNT_Crate_Consume"):InvokeServer()
+            task.wait(10)
+        else
+            task.wait(0.5)
+        end
+    end
+end)
+
+-- Vòng lặp Sprinkler (303 giây)
+task.spawn(function()
+    local args = {
+        "Breakable Sprinkler",
+        "f2d27397f245466cb0f3d9d81139c305"
+    }
+    while true do
+        if states.Sprinkler then
+            game:GetService("ReplicatedStorage"):WaitForChild("Network"):WaitForChild("Sprinklers: Consume"):InvokeServer(unpack(args))
+            task.wait(303)
+        else
+            task.wait(0.5)
+        end
+    end
+end)
+
+-- Vòng lặp Party Box (15 giây)
+task.spawn(function()
+    local args = {
+        "a55978e40a2d42d58e222777c4e8cd8a"
+    }
+    while true do
+        if states.PartyBox then
+            game:GetService("ReplicatedStorage"):WaitForChild("Network"):WaitForChild("PartyBox_Consume"):InvokeServer(unpack(args))
+            task.wait(15)
+        else
+            task.wait(0.5)
+        end
+    end
+end)
+
+-- Vòng lặp Craft Gift 1 (5 giây)
+task.spawn(function()
+    local args = {
+        "0759f1ee8315402eb33ffc3f37a586c0",
+        1
+    }
+    while true do
+        if states.Gift1 then
+            game:GetService("ReplicatedStorage"):WaitForChild("Network"):WaitForChild("FantasyCombineOMatic_Activate"):InvokeServer(unpack(args))
+            task.wait(5)
+        else
+            task.wait(0.5)
+        end
+    end
+end)
+
+-- Vòng lặp Craft Gift 2 (5 giây)
+task.spawn(function()
+    local args = {
+        "16ffe780b7e349b1807ba29094ed2268",
+        1
+    }
+    while true do
+        if states.Gift2 then
+            game:GetService("ReplicatedStorage"):WaitForChild("Network"):WaitForChild("FantasyCombineOMatic_Activate"):InvokeServer(unpack(args))
+            task.wait(5)
+        else
+            task.wait(0.5)
+        end
+    end
+end)
