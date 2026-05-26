@@ -40,13 +40,13 @@ task.spawn(function()
         if states.TNT then
             game:GetService("ReplicatedStorage"):WaitForChild("Network"):WaitForChild("TNT_Crate_Consume"):InvokeServer()
 
-            task.wait(30)
+            task.wait(45)
         else
             task.wait(0.5)
         end
     end
 end)
-wait(45)
+wait(20)
 getgenv().Config = {
     ['Areas'] = {
         "4 | Green Forest",
