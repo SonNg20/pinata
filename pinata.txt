@@ -5,7 +5,7 @@ getgenv().Config = {
         "5 | Autumn",
         "6 | Cherry Blossom",
         "7 | Farm",
-        "3 | Backyard",
+        "8 | Backyard",
     }
 }
 
