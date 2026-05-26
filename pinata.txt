@@ -53,7 +53,7 @@ task.spawn(function()
 
                 if dist <= 300 then
                     Network.UnreliableFire("Breakables_PlayerDealDamage", v.Name)
-                    task.wait(0.05)
+                    task.wait(0.1)
                 end
             end
         end
@@ -77,11 +77,11 @@ end
 while task.wait() do
     if GetPinataUID() then
         for _, v in pairs(Areas) do
-            if not v:FindFirstChild("INTERACT") then repeat LocalPlayer.Character.HumanoidRootPart.CFrame = v.PERSISTENT.Teleport.CFrame task.wait(0.1) until v:FindFirstChild("INTERACT") end
+            if not v:FindFirstChild("INTERACT") then repeat LocalPlayer.Character.HumanoidRootPart.CFrame = v.PERSISTENT.Teleport.CFrame task.wait(0.5) until v:FindFirstChild("INTERACT") end
             LocalPlayer.Character.HumanoidRootPart.CFrame = v.INTERACT.BREAK_ZONES.BREAK_ZONE.CFrame
             a,e = Network.Invoke("MiniPinata_Consume", GetPinataUID())
             if not a and msg ~= "There is already something in this area!" or msg ~= "There are too many random events already in the world!" then 
-                repeat a,e = Network.Invoke("MiniPinata_Consume", GetPinataUID()) task.wait(0.1) until a
+                repeat a,e = Network.Invoke("MiniPinata_Consume", GetPinataUID()) task.wait(0.5) until a
             end
             Network.Invoke("MiniPinata_Consume", GetPinataUID())
         end
