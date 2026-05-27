@@ -111,17 +111,6 @@ game.DescendantAdded:Connect(function(v)
 		v.TextureID = ""
 	end
 end)
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-
-while true do
-	task.wait(300) -- 300 giây
-
-	local character = LocalPlayer.Character
-	if character and character:FindFirstChild("Humanoid") then
-		character.Humanoid.Jump = true
-	end
-end
 wait(1)
 -- Auto Collect Orb / Coin / Lootbag
 
