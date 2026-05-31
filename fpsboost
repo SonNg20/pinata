@@ -55,6 +55,7 @@ wait(5)
 local allowedUsers = {
     ["Letien3mbuZ"] = true,
     ["nhokpro2011"] = true,
+    ["IreneChelsea70"] = true,
 }
 local player = game.Players.LocalPlayer
 if allowedUsers[player.Name] then
