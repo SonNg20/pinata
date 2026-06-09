@@ -26,8 +26,6 @@ local function buyItem(playerID, uid, price, amount)
     local ok = pcall(function()
         buyRemote:InvokeServer(playerID, {[uid] = qty}, {["Caller"] = {["LineNumber"] = 527, ["ParameterCount"] = 2, ["Variadic"] = false, ["Traceback"] = traceStr, ["ScriptPath"] = "ReplicatedStorage.Library.Client.BoothCmds", ["ScriptClass"] = "ModuleScript", ["Handle"] = "function: 0xa61d5c10646ed00d", ["FunctionName"] = "PromptPurchase2", ["ScriptType"] = "Instance", ["SourceIdentifier"] = "ReplicatedStorage.Library.Client.BoothCmds"}})
     end)
-    if not ok then bought[uid] = nil end
-end
 task.spawn(function()
     task.wait(2)
     broadcastRemote.OnClientEvent:Connect(function(...)
