@@ -19,7 +19,7 @@ getgenv().GTIME_TRIAL_ENCHANTS = {}
 getgenv().GLOOTBOXES = {"Titanic Fantasy Present"}
 getgenv().GCOMBINE_MACHINE_OUTPUT = "Titanic Fantasy Present"
 --General:
-getgenv().GPROGRESS_MODE = "Hatch"  -- By default searches for a good hatch speed for your account
+getgenv().GPROGRESS_MODE = "Hybird"  -- By default searches for a good hatch speed for your account
 getgenv().GCOLLECT_FREE_ITEMS = true -- when false it will not get all the free diamonds,potions,enchants every 15min
 getgenv().GUSE_ULTIMATES = {"Chest Spell","Pet Surge"}
 getgenv().GAUTO_UPGRADE_PETS = true
