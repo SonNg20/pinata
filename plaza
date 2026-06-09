@@ -1,0 +1,167 @@
+local Network = game:GetService("ReplicatedStorage"):WaitForChild("Network")
+local buyRemote = Network:WaitForChild("Booths_RequestPurchase")
+local broadcastRemote = Network:WaitForChild("Booths_Broadcast")
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+ 
+-- =====================
+-- WHITELIST CỦA BẠN
+-- =====================
+-- ["Tên item"] = giá tối đa (0 = mua bất kể giá)
+local WHITELIST = {
+    ["Rave"] = 0,
+    ["Watermelon"] = 500000,
+    -- thêm item vào đây
+}
+ 
+-- =====================
+-- HÀM LẤY DIAMONDS
+-- =====================
+local function getDiamonds()
+    local ok, val = pcall(function()
+        return player.leaderstats["💎 Diamonds"].Value
+    end)
+    return ok and val or 0
+end
+ 
+-- =====================
+-- HÀM MUA ITEM
+-- =====================
+local bought = {}
+local enabled = true
+ 
+local function buyItem(playerID, uid, itemName, price, totalAmount)
+    if bought[uid] then return end
+    bought[uid] = true
+ 
+    local diamonds = getDiamonds()
+    if diamonds <= 0 or price <= 0 then
+        bought[uid] = nil
+        return
+    end
+ 
+    -- Tính số lượng mua tối đa
+    local maxCanBuy = math.floor(diamonds / price)
+    local amountToBuy = math.min(totalAmount, maxCanBuy)
+ 
+    if amountToBuy <= 0 then
+        bought[uid] = nil
+        return
+    end
+ 
+    local args = {
+        [1] = playerID,
+        [2] = { [uid] = amountToBuy },
+        [3] = {
+            ["Caller"] = {
+                ["LineNumber"] = 527,
+                ["ParameterCount"] = 2,
+                ["Variadic"] = false,
+                ["Traceback"] = "ReplicatedStorage.Library.Client.BoothCmds:527 function PromptPurchase2\nReplicatedStorage.Library.Client.BoothCmds:654 function promptOtherPlayerBooth2\nReplicatedStorage.Library.Client.BoothCmds:157",
+                ["ScriptPath"] = "ReplicatedStorage.Library.Client.BoothCmds",
+                ["ScriptClass"] = "ModuleScript",
+                ["Handle"] = "function: 0xa61d5c10646ed00d",
+                ["FunctionName"] = "PromptPurchase2",
+                ["ScriptType"] = "Instance",
+                ["SourceIdentifier"] = "ReplicatedStorage.Library.Client.BoothCmds"
+            }
+        }
+    }
+ 
+    local ok, result = pcall(function()
+        return buyRemote:InvokeServer(unpack(args))
+    end)
+ 
+    if not ok then
+        bought[uid] = nil
+    end
+end
+ 
+-- =====================
+-- SNIPER LISTENER
+-- =====================
+broadcastRemote.OnClientEvent:Connect(function(username, boothData)
+    if not enabled then return end
+    if type(boothData) ~= "table" then return end
+ 
+    local listings = boothData.Listings
+    local playerID = boothData.PlayerID
+    if not listings or not playerID then return end
+ 
+    for uid, item in pairs(listings) do
+        if type(item) ~= "table" then continue end
+ 
+        local itemData = item.ItemData
+        local price = item.DiamondCost
+        if not itemData or not price then continue end
+ 
+        local itemName = itemData.data and itemData.data.id
+        local amount = itemData.data and itemData.data._am or 1
+        if not itemName then continue end
+ 
+        if WHITELIST[itemName] ~= nil then
+            local maxPrice = WHITELIST[itemName]
+            if maxPrice == 0 or price <= maxPrice then
+                task.spawn(buyItem, playerID, uid, itemName, price, amount)
+            end
+        end
+    end
+end)
+ 
+-- =====================
+-- GUI BẬT/TẮT
+-- =====================
+if game.CoreGui:FindFirstChild("SniperGUI") then
+    game.CoreGui.SniperGUI:Destroy()
+end
+ 
+local sg = Instance.new("ScreenGui", game.CoreGui)
+sg.Name = "SniperGUI"
+sg.ResetOnSpawn = false
+ 
+-- Nền button
+local btn = Instance.new("TextButton", sg)
+btn.Size = UDim2.new(0, 130, 0, 44)
+btn.Position = UDim2.new(0, 10, 0.5, 0)
+btn.BackgroundColor3 = Color3.fromRGB(0, 180, 80)
+btn.TextColor3 = Color3.new(1, 1, 1)
+btn.Font = Enum.Font.GothamBold
+btn.TextSize = 14
+btn.Text = "🟢 SNIPER ON"
+btn.BorderSizePixel = 0
+ 
+-- Bo góc
+local corner = Instance.new("UICorner", btn)
+corner.CornerRadius = UDim.new(0, 8)
+ 
+-- Label diamonds
+local dLabel = Instance.new("TextLabel", sg)
+dLabel.Size = UDim2.new(0, 130, 0, 24)
+dLabel.Position = UDim2.new(0, 10, 0.5, 48)
+dLabel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+dLabel.BackgroundTransparency = 0.3
+dLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
+dLabel.Font = Enum.Font.GothamBold
+dLabel.TextSize = 12
+dLabel.Text = "💎 " .. getDiamonds()
+dLabel.BorderSizePixel = 0
+Instance.new("UICorner", dLabel).CornerRadius = UDim.new(0, 6)
+ 
+-- Cập nhật diamonds realtime
+task.spawn(function()
+    while task.wait(1) do
+        dLabel.Text = "💎 " .. getDiamonds()
+    end
+end)
+ 
+-- Toggle ON/OFF
+btn.MouseButton1Click:Connect(function()
+    enabled = not enabled
+    if enabled then
+        btn.BackgroundColor3 = Color3.fromRGB(0, 180, 80)
+        btn.Text = "🟢 SNIPER ON"
+    else
+        btn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+        btn.Text = "🔴 SNIPER OFF"
+    end
+end)
