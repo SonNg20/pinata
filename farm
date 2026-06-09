@@ -12,7 +12,7 @@ getgenv().GMAX_ZONE_UPGRADE_COST = 200000000
 getgenv().GDO_TIME_TRIAL = true
 getgenv().GTIME_TRIAL_MIN_TIME_TO_BOSS3 = 200
 getgenv().GTIME_TRIAL_CHEST_TO_CLAIM = 3
-getgenv().GTIME_TRIAL_HATCH_FIRST_SECONDS = 1200
+getgenv().GTIME_TRIAL_HATCH_FIRST_SECONDS = 600
 -- these is just a sample config, choose your own enchant setup.. see FAQ
 getgenv().GTIME_TRIAL_ENCHANTS = {}
 --Final zone present farming:
