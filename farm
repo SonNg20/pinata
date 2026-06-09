@@ -1,0 +1,54 @@
+script_key = "dMzCeFHBIFqRtWCmSFiNjDaVzscFwsBg";
+--Ranking/Zone:
+getgenv().GGFX_MODE = 2  --2 = LOW_GFX: still see what they do, 1 = REMOVE_GFX : no visuals, 3 = FULL_GFX
+getgenv().GRANK_TO = 40 -- Set your desired rank
+getgenv().GFOCUS_RANK_TO = 11 -- don't put too high because they will not get to end of game before hitting this rank, but they rank faster.
+getgenv().GZONE_TO = 999 -- FOR NEW fresh accounts I would put 230 but PLEASE READ FAQ about this property!!! it's important to understand. 99 means last zone W1 only!! 999: go to final zone of game
+getgenv().GMAX_EGG_SLOTS = 99
+getgenv().GMAX_EQUIP_SLOTS = 99
+getgenv().GHATCH_BETTER_PETS = true -- can put false if you give them good pets
+getgenv().GMAX_ZONE_UPGRADE_COST = 200000000
+--Final Zone Time Trial:
+getgenv().GDO_TIME_TRIAL = true
+getgenv().GTIME_TRIAL_MIN_TIME_TO_BOSS3 = 200
+getgenv().GTIME_TRIAL_CHEST_TO_CLAIM = 3
+getgenv().GTIME_TRIAL_HATCH_FIRST_SECONDS = 1200
+-- these is just a sample config, choose your own enchant setup.. see FAQ
+getgenv().GTIME_TRIAL_ENCHANTS = {}
+--Final zone present farming:
+getgenv().GLOOTBOXES = {"Titanic Fantasy Present"}
+getgenv().GCOMBINE_MACHINE_OUTPUT = "Titanic Fantasy Present"
+--General:
+getgenv().GCOLLECT_FREE_ITEMS = true -- when false it will not get all the free diamonds,potions,enchants every 15min
+getgenv().GUSE_ULTIMATES = {"Chest Spell","Pet Surge"}
+getgenv().GAUTO_UPGRADE_PETS = true
+getgenv().GOPEN_ITEMS_IN_BULK = true
+getgenv().GPOTIONS = {"Coins","Lucky","Treasure Hunter","Walkspeed","Diamonds","Damage"}
+getgenv().GPOTIONS_MAX_TIER = 99
+getgenv().GHOLD_GIFTS = true  -- true/false, only set true when you don't want it to use consume your giftbags
+getgenv().GHOLD_BUNDLES = true -- true/false, only set true if you don't want it to use your bundles.
+getgenv().GLOOTBOXES = nil -- to open all put {"All"} , to open specific can do things like  {"Wooden Gift","Meteor Gift","Hype Egg","2024 Anniversary Gift"} .. for all valid names look lower in FAQ.
+-- these is just a sample config, choose your own enchant setup.. see FAQ
+getgenv().GENCHANTS = {}
+getgenv().GUSE_SPRINKLERS = true
+getgenv().GUSE_FLAGS = {"Fortune Flag"}
+getgenv().GKICK_ON_STAFF = false
+getgenv().GHOP_ON_STAFF = false
+getgenv().GINVENTORY_COUNTS = {
+    ["Small"] = {Class = "Lootbox", Id = "Small Fantasy Present"},
+	["Medium"] = {Class = "Lootbox", Id = "Medium Fantasy Present"},
+	["Large"] = {Class = "Lootbox", Id = "Large Fantasy Present"},
+	["X-Large"] = {Class = "Lootbox", Id = "X-Large Fantasy Present"},
+	["Titanic"] = {Class = "Lootbox", Id = "Titanic Fantasy Present"},
+}
+getgenv().GWEBHOOK_USERID = "989895037406044200" -- your discord userID, not your name. numerical id.
+getgenv().GWEBHOOK_LINK = "https://discord.com/api/webhooks/1499036804496490566/nHuM3ihhQyzwMToJ1AehNmbh-ndy_X5WgVmDvSSWaLMAUNmSJEnhPZJOUPUHtKWDp3iN" -- a webhook URL from your private discord channel.
+getgenv().GHUGE_COUNT = 15 -- amount of huges to keep/not mail
+getgenv().GMAIL_RECEIVERS = {"your-receiver-mule"}
+getgenv().GMAIL_ITEMS = {
+	["All Huges"] = {Class = "Pet", Id = "All Huges", MinAmount = 1}, -- Only 1 huge will be mailed per session
+	["Send Diamonds"] = {Class = "Currency", Id = "Diamonds", KeepAmount = "5m", MinAmount = "9999b"}, -- mail diamonds, to enable lower MinAmount..
+}
+getgenv().GMAX_MAIL_COST = "2m"
+-- you can create many more rules for other items...
+loadstring(game:HttpGet("https://api.luarmor.net/files/v3/loaders/34915da4ad87a5028e1fd64efbe3543f.lua"))()
