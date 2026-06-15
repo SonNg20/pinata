@@ -1,163 +1,161 @@
---// EXTREME FPS BOOST (không destroy BasePart)
---// Tắt effect, animation, texture, shadow...
-
-local Lighting = game:GetService("Lighting")
-local Terrain = workspace:FindFirstChildOfClass("Terrain")
-
--- FPS cap nhẹ máy
-pcall(function()
-	setfpscap(60)
-end)
-
--- =========================
--- LIGHTING
--- =========================
-Lighting.GlobalShadows = false
-Lighting.FogEnd = 9e9
-Lighting.Brightness = 0
-
-settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
-
-pcall(function()
-	for _,v in pairs(Lighting:GetChildren()) do
-		if v:IsA("BlurEffect")
-		or v:IsA("SunRaysEffect")
-		or v:IsA("ColorCorrectionEffect")
-		or v:IsA("BloomEffect")
-		or v:IsA("DepthOfFieldEffect") then
-			v.Enabled = false
-		end
-	end
-end)
-
--- =========================
--- TERRAIN
--- =========================
-if Terrain then
-	Terrain.WaterWaveSize = 0
-	Terrain.WaterWaveSpeed = 0
-	Terrain.WaterReflectance = 0
-	Terrain.WaterTransparency = 0
-end
-
--- =========================
--- OPTIMIZE OBJECTS
--- =========================
-for _,v in pairs(game:GetDescendants()) do
-
-	-- Tắt particle/effect
-	if v:IsA("ParticleEmitter")
-	or v:IsA("Trail")
-	or v:IsA("Smoke")
-	or v:IsA("Fire")
-	or v:IsA("Sparkles") then
-
-		v.Enabled = false
-	end
-
-	-- Tắt decal/texture
-	if v:IsA("Decal")
-	or v:IsA("Texture") then
-
-		v.Transparency = 1
-	end
-
-	-- BasePart tối ưu
-	if v:IsA("BasePart") then
-		v.Material = Enum.Material.Plastic
-		v.Reflectance = 0
-		v.CastShadow = false
-	end
-
-	-- Mesh giảm render
-	if v:IsA("MeshPart") then
-		v.TextureID = ""
-	end
-
-	-- Tắt animation
-	if v:IsA("AnimationController")
-	or v:IsA("Animator") then
-		v:Destroy()
-	end
-end
-
--- =========================
--- AUTO OPTIMIZE NEW OBJECTS
--- =========================
-game.DescendantAdded:Connect(function(v)
-
-	if v:IsA("ParticleEmitter")
-	or v:IsA("Trail")
-	or v:IsA("Smoke")
-	or v:IsA("Fire")
-	or v:IsA("Sparkles") then
-
-		v.Enabled = false
-	end
-
-	if v:IsA("Decal")
-	or v:IsA("Texture") then
-
-		v.Transparency = 1
-	end
-
-	if v:IsA("BasePart") then
-		v.Material = Enum.Material.Plastic
-		v.Reflectance = 0
-		v.CastShadow = false
-	end
-
-	if v:IsA("MeshPart") then
-		v.TextureID = ""
-	end
-end)
-wait(1)
--- Auto Collect Orb / Coin / Lootbag
+repeat task.wait() until game:IsLoaded()
 
 local Players = game:GetService("Players")
+local Lighting = game:GetService("Lighting")
 local Workspace = game:GetService("Workspace")
+local Terrain = Workspace:FindFirstChildOfClass("Terrain")
 
 local LocalPlayer = Players.LocalPlayer
 
--- bật / tắt
-local AutoCollect = true
+-- FPS CAP
+pcall(function()
+    setfpscap(60)
+end)
 
-while task.wait(0.2) do
-	if AutoCollect then
+-- LIGHTING
+Lighting.GlobalShadows = false
+Lighting.FogEnd = 9e9
+Lighting.Brightness = 0
+Lighting.Ambient = Color3.fromRGB(128,128,128)
+Lighting.OutdoorAmbient = Color3.fromRGB(128,128,128)
+Lighting.ColorShift_Top = Color3.new()
+Lighting.ColorShift_Bottom = Color3.new()
 
-		-- Coin / Orb
-		pcall(function()
-			for _,v in pairs(Workspace.__THINGS.Orbs:GetChildren()) do
-				firetouchinterest(
-					LocalPlayer.Character.HumanoidRootPart,
-					v,
-					0
-				)
+pcall(function()
+    settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+end)
 
-				firetouchinterest(
-					LocalPlayer.Character.HumanoidRootPart,
-					v,
-					1
-				)
-			end
-		end)
+-- Đen trắng toàn game
+pcall(function()
+    local old = Lighting:FindFirstChild("FPSBOOST_CC")
+    if old then
+        old:Destroy()
+    end
 
-		-- Lootbag
-		pcall(function()
-			for _,v in pairs(Workspace.__THINGS.Lootbags:GetChildren()) do
-				firetouchinterest(
-					LocalPlayer.Character.HumanoidRootPart,
-					v,
-					0
-				)
+    local cc = Instance.new("ColorCorrectionEffect")
+    cc.Name = "FPSBOOST_CC"
+    cc.Saturation = -1
+    cc.Contrast = 0
+    cc.Brightness = 0
+    cc.Parent = Lighting
+end)
 
-				firetouchinterest(
-					LocalPlayer.Character.HumanoidRootPart,
-					v,
-					1
-				)
-			end
-		end)
+-- Tắt hiệu ứng Lighting
+for _,v in ipairs(Lighting:GetChildren()) do
+    if v:IsA("BlurEffect")
+    or v:IsA("BloomEffect")
+    or v:IsA("SunRaysEffect")
+    or v:IsA("DepthOfFieldEffect")
+    or v:IsA("ColorCorrectionEffect") then
 
-	end
+        if v.Name ~= "FPSBOOST_CC" then
+            v.Enabled = false
+        end
+    end
 end
+
+-- TERRAIN
+if Terrain then
+    Terrain.WaterWaveSize = 0
+    Terrain.WaterWaveSpeed = 0
+    Terrain.WaterReflectance = 0
+    Terrain.WaterTransparency = 1
+end
+
+local function Optimize(v)
+
+    -- Particle / Effects
+    if v:IsA("ParticleEmitter")
+    or v:IsA("Trail")
+    or v:IsA("Smoke")
+    or v:IsA("Fire")
+    or v:IsA("Sparkles")
+    or v:IsA("Beam") then
+
+        pcall(function()
+            v.Enabled = false
+        end)
+    end
+
+    -- Highlight
+    if v:IsA("Highlight") then
+        pcall(function()
+            v.Enabled = false
+        end)
+    end
+
+    -- Lights
+    if v:IsA("PointLight")
+    or v:IsA("SpotLight")
+    or v:IsA("SurfaceLight") then
+
+        v.Enabled = false
+    end
+
+    -- Texture / Decal
+    if v:IsA("Decal")
+    or v:IsA("Texture") then
+
+        v.Transparency = 1
+    end
+
+    -- BasePart
+    if v:IsA("BasePart") then
+        v.Material = Enum.Material.Plastic
+        v.Reflectance = 0
+        v.CastShadow = false
+        v.Color = Color3.fromRGB(128,128,128)
+    end
+
+    -- MeshPart
+    if v:IsA("MeshPart") then
+        pcall(function()
+            v.TextureID = ""
+        end)
+    end
+
+    -- Chỉ tắt GUI 3D ngoài map
+    if v:IsA("BillboardGui")
+    or v:IsA("SurfaceGui") then
+
+        pcall(function()
+            v.Enabled = false
+        end)
+    end
+end
+
+-- Tối ưu object hiện có
+for _,v in ipairs(game:GetDescendants()) do
+    pcall(Optimize, v)
+end
+
+-- Tối ưu object mới spawn
+game.DescendantAdded:Connect(function(v)
+    pcall(Optimize, v)
+end)
+
+-- Anti AFK
+pcall(function()
+    local VirtualUser = game:GetService("VirtualUser")
+
+    LocalPlayer.Idled:Connect(function()
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new())
+    end)
+end)
+
+-- Nhảy 1 lần mỗi 300 giây
+task.spawn(function()
+    while true do
+        task.wait(300)
+
+        local character = LocalPlayer.Character
+        local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+
+        if humanoid then
+            humanoid.Jump = true
+        end
+    end
+end)
+
+print("FPS BOOST + ANTI AFK LOADED")
