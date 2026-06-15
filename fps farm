@@ -1,3 +1,5 @@
+repeat task.wait() until game:IsLoaded()
+wait(15)
 for _,v in next, workspace:GetDescendants() do
     pcall(function()
         if v:IsA("BasePart") then
