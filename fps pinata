@@ -4,33 +4,28 @@ local Players = game:GetService("Players")
 local Lighting = game:GetService("Lighting")
 local Workspace = game:GetService("Workspace")
 local Terrain = Workspace:FindFirstChildOfClass("Terrain")
-
 local LocalPlayer = Players.LocalPlayer
 
--- FPS CAP
+-- Giới hạn FPS ở mức thấp để giảm tải CPU/GPU khi treo máy
 pcall(function()
     setfpscap(60)
 end)
 
--- LIGHTING
+-- KHÔNG GIAN ÁNH SÁNG (Tối giản hoàn toàn)
 Lighting.GlobalShadows = false
 Lighting.FogEnd = 9e9
 Lighting.Brightness = 0
-Lighting.Ambient = Color3.fromRGB(128,128,128)
-Lighting.OutdoorAmbient = Color3.fromRGB(128,128,128)
-Lighting.ColorShift_Top = Color3.new()
-Lighting.ColorShift_Bottom = Color3.new()
+Lighting.Ambient = Color3.fromRGB(128, 128, 128)
+Lighting.OutdoorAmbient = Color3.fromRGB(128, 128, 128)
 
 pcall(function()
     settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
 end)
 
--- Đen trắng toàn game
+-- Bật hiệu ứng đen trắng tối giản để triệt tiêu xử lý màu của game
 pcall(function()
     local old = Lighting:FindFirstChild("FPSBOOST_CC")
-    if old then
-        old:Destroy()
-    end
+    if old then old:Destroy() end
 
     local cc = Instance.new("ColorCorrectionEffect")
     cc.Name = "FPSBOOST_CC"
@@ -40,21 +35,15 @@ pcall(function()
     cc.Parent = Lighting
 end)
 
--- Tắt hiệu ứng Lighting
-for _,v in ipairs(Lighting:GetChildren()) do
-    if v:IsA("BlurEffect")
-    or v:IsA("BloomEffect")
-    or v:IsA("SunRaysEffect")
-    or v:IsA("DepthOfFieldEffect")
-    or v:IsA("ColorCorrectionEffect") then
-
-        if v.Name ~= "FPSBOOST_CC" then
-            v.Enabled = false
-        end
+-- Xóa các hiệu ứng thời tiết / môi trường trong Lighting
+for _, v in ipairs(Lighting:GetChildren()) do
+    if v:IsA("BlurEffect") or v:IsA("BloomEffect") or v:IsA("SunRaysEffect") 
+    or v:IsA("DepthOfFieldEffect") or v:IsA("Atmosphere") or v:IsA("Sky") then
+        v:Destroy()
     end
 end
 
--- TERRAIN
+-- Đơn giản hóa địa hình đất/nước (Terrain)
 if Terrain then
     Terrain.WaterWaveSize = 0
     Terrain.WaterWaveSpeed = 0
@@ -62,100 +51,74 @@ if Terrain then
     Terrain.WaterTransparency = 1
 end
 
-local function Optimize(v)
-
-    -- Particle / Effects
-    if v:IsA("ParticleEmitter")
-    or v:IsA("Trail")
-    or v:IsA("Smoke")
-    or v:IsA("Fire")
-    or v:IsA("Sparkles")
-    or v:IsA("Beam") then
-
-        pcall(function()
-            v.Enabled = false
-        end)
-    end
-
-    -- Highlight
-    if v:IsA("Highlight") then
-        pcall(function()
-            v.Enabled = false
-        end)
-    end
-
-    -- Lights
-    if v:IsA("PointLight")
-    or v:IsA("SpotLight")
+-- HÀM TRIỆT TIÊU HIỆU ỨNG VÀ VẬT THỂ RÁC
+local function ExtremeOptimize(v)
+    -- 1. XÓA THẲNG TAY: Hiệu ứng hạt, khói, lửa, vệt sáng, highlight, đèn rác
+    if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Smoke") 
+    or v:IsA("Fire") or v:IsA("Sparkles") or v:IsA("Beam") 
+    or v:IsA("Highlight") or v:IsA("PointLight") or v:IsA("SpotLight") 
     or v:IsA("SurfaceLight") then
-
-        v.Enabled = false
+        v:Destroy()
+        return
     end
 
-    -- Texture / Decal
-    if v:IsA("Decal")
-    or v:IsA("Texture") then
-
-        v.Transparency = 1
+    -- 2. XÓA THẲNG TAY: Ảnh dán, vân bề mặt làm nặng RAM đồ họa
+    if v:IsA("Decal") or v:IsA("Texture") then
+        v:Destroy()
+        return
     end
 
-    -- BasePart
+    -- 3. XÓA GUI 3D TRÊN MAP (Giữ lại ScreenGui chính của người chơi)
+    if v:IsA("BillboardGui") or v:IsA("SurfaceGui") then
+        v:Destroy()
+        return
+    end
+
+    -- 4. ÉP KHỐI (BasePart): Tắt đổ bóng, đổi sang chất liệu trơn nhẹ nhất không phản chiếu
     if v:IsA("BasePart") then
-        v.Material = Enum.Material.Plastic
+        v.Material = Enum.Material.SmoothPlastic
         v.Reflectance = 0
         v.CastShadow = false
-        v.Color = Color3.fromRGB(128,128,128)
+        v.Color = Color3.fromRGB(128, 128, 128)
     end
 
-    -- MeshPart
-    if v:IsA("MeshPart") then
+    -- 5. XÓA SKIN/TEXTURE CỦA MESH (Biến mesh thành khối xám trơn)
+    if v:IsA("MeshPart") or v:IsA("SpecialMesh") then
         pcall(function()
             v.TextureID = ""
         end)
     end
-
-    -- Chỉ tắt GUI 3D ngoài map
-    if v:IsA("BillboardGui")
-    or v:IsA("SurfaceGui") then
-
-        pcall(function()
-            v.Enabled = false
-        end)
-    end
 end
 
--- Tối ưu object hiện có
-for _,v in ipairs(game:GetDescendants()) do
-    pcall(Optimize, v)
+-- Quét sạch toàn bộ map hiện tại
+for _, v in ipairs(Workspace:GetDescendants()) do
+    pcall(ExtremeOptimize, v)
 end
 
--- Tối ưu object mới spawn
-game.DescendantAdded:Connect(function(v)
-    pcall(Optimize, v)
+-- Tự động xóa nếu có hiệu ứng mới spawn ra map
+Workspace.DescendantAdded:Connect(function(v)
+    pcall(ExtremeOptimize, v)
 end)
 
--- Anti AFK
+-- ANTI AFK ĐÃ TỐI ƯU
 pcall(function()
     local VirtualUser = game:GetService("VirtualUser")
-
     LocalPlayer.Idled:Connect(function()
         VirtualUser:CaptureController()
         VirtualUser:ClickButton2(Vector2.new())
     end)
 end)
 
--- Nhảy 1 lần mỗi 300 giây
+-- Nhân vật tự nhảy chống AFK mỗi 300 giây (5 phút)
 task.spawn(function()
     while true do
         task.wait(300)
-
         local character = LocalPlayer.Character
         local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-
-        if humanoid then
+        if humanoid and humanoid.Health > 0 then
             humanoid.Jump = true
         end
     end
 end)
 
-print("FPS BOOST + ANTI AFK LOADED")
+print("⚡ XÓA HIỆU ỨNG + ULTRA FPS BOOST LOADED ⚡")
