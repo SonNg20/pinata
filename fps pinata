@@ -1,3 +1,8 @@
+-- Khóa FPS về mức 7 ngay lập tức để tối ưu phần cứng cực hạn khi treo máy
+if setfpscap then
+    setfpscap(7)
+end
+
 repeat task.wait() until game:IsLoaded()
 
 local Players = game:GetService("Players")
@@ -7,19 +12,19 @@ local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
-task.wait(5)
-setfpscap(6)
--- Định nghĩa các đường dẫn tài nguyên cho phần Auto Damage
+task.wait(10)
+
+-- Định nghĩa tài nguyên cho phần Auto Damage
 local DamageRemote = ReplicatedStorage:WaitForChild("Network"):WaitForChild("Breakables_PlayerDealDamage")
 local BreakablesFolder = workspace:FindFirstChild("__THINGS") and workspace.__THINGS:FindFirstChild("Breakables")
 local CurrentActiveZone = nil
 
--- Khởi tạo part hiển thị bán kính (Vòng tròn laze trực quan tăng lên 150 studs)
+-- Khởi tạo vòng tròn hiển thị bán kính laze trực quan (150 studs - màu xám)
 local VisualRadiusPart = Instance.new("CylinderHandleAdornment")
 VisualRadiusPart.Name = "FarmRadiusVisual"
-VisualRadiusPart.Color3 = Color3.fromRGB(52, 152, 219) -- Màu xanh dương Neon
-VisualRadiusPart.Transparency = 0.85 -- Độ trong suốt
-VisualRadiusPart.Radius = 150 -- ĐA TĂNG HIỂN THỊ BÁN KÍNH LÊN 150 STUDS
+VisualRadiusPart.Color3 = Color3.fromRGB(128, 128, 128)
+VisualRadiusPart.Transparency = 0.8
+VisualRadiusPart.Radius = 150
 VisualRadiusPart.Height = 1
 VisualRadiusPart.Angle = 360
 VisualRadiusPart.Adornee = nil
@@ -48,14 +53,14 @@ local function isBreakableOrPetMesh(v)
 end
 
 -- ========================================================
--- HÀM BIẾN BREAKABLE THÀNH KHỐI VUÔNG NHỎ MÀU XANH DƯƠNG
+-- HÀM BIẾN BREAKABLE THÀNH KHỐI VUÔNG NHỎ MÀU XÁM (XÓA MÀU GỐC)
 -- ========================================================
 local function boxifyBreakable(v)
     pcall(function()
         if v:IsA("BasePart") and isBreakableOrPetMesh(v) and not string.find(v.Name, "Pet") then
             v.Shape = Enum.PartType.Block
             v.Size = Vector3.new(1.5, 1.5, 1.5)
-            v.Color = Color3.fromRGB(52, 152, 219)
+            v.Color = Color3.fromRGB(128, 128, 128)
             v.Material = Enum.Material.SmoothPlastic
             v.CastShadow = false
             
@@ -71,26 +76,25 @@ local function boxifyBreakable(v)
     end)
 end
 
--- Quét ẩn map và boxify hệ thống hiện tại
-for _, v in next, workspace:GetDescendants() do
+-- Quét ẩn bức tường map nền và thực hiện ép hộp xóa màu hòm
+local function handleMapPart(v)
     pcall(function()
         if v:IsA("BasePart") then
-            if isPlayerBody(v) then elseif isBreakableOrPetMesh(v) then boxifyBreakable(v) else v.Transparency = 1 end
+            if isPlayerBody(v) then 
+                -- Giữ nguyên nhân vật của bạn
+            elseif isBreakableOrPetMesh(v) then 
+                boxifyBreakable(v)
+            else 
+                v.Transparency = 1
+            end
         end
     end)
 end
 
-workspace.DescendantAdded:Connect(function(v)
-    pcall(function()
-        if v:IsA("BasePart") then
-            if isPlayerBody(v) then elseif isBreakableOrPetMesh(v) then boxifyBreakable(v) else v.Transparency = 1 end
-        end
-    end)
-end)
+for _, v in next, workspace:GetDescendants() do handleMapPart(v) end
+workspace.DescendantAdded:Connect(handleMapPart)
 
--- ========================================================
--- HÀM DIỆT SẠCH 100% HIỆU ỨNG RÁC (KỂ CẢ TRONG BREAKABLES)
--- ========================================================
+-- Diệt toàn bộ các hiệu ứng môi trường lơ lửng gây nặng máy
 local function removeAllEffects(obj)
     if not isPlayerBody(obj) then
         if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Smoke") 
@@ -103,12 +107,11 @@ local function removeAllEffects(obj)
         end
     end
 end
-
 for _, v in ipairs(game:GetDescendants()) do pcall(removeAllEffects, v) end
 game.DescendantAdded:Connect(function(v) pcall(removeAllEffects, v) end)
 
 -- ========================================================
--- PHẦN UI - BẢO VỆ XOAY CAMERA
+-- PHẦN UI - BẢO VỆ XOAY CAMERA AN TOÀN
 -- ========================================================
 pcall(function()
     StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.All, false)
@@ -147,7 +150,7 @@ if camera then
 end
 
 -- ========================================================
--- LUỒNG QUÉT ZONE (CẬP NHẬT VÒNG TRÒN LAZE BÁN KÍNH TRỰC QUAN)
+-- LUỒNG QUÉT ZONE (CẬP NHẬT TÂM VÒNG TRÒN LAZE BÁN KÍNH)
 -- ========================================================
 task.spawn(function()
     while true do
@@ -167,7 +170,6 @@ task.spawn(function()
             for _, desc in ipairs(workspace:GetDescendants()) do
                 if desc:IsA("BasePart") and desc.Name == "BREAK_ZONE" then
                     local dist = (desc.Position - playerPos).Magnitude
-                    -- Giữ tầm nhận diện zone hợp lý xung quanh người chơi để kích hoạt
                     if dist <= 80 and dist < minZoneDistance then
                         minZoneDistance = dist
                         nearestZone = desc
@@ -189,7 +191,7 @@ task.spawn(function()
 end)
 
 -- ========================================================
--- KHỞI TẠO ĐA LUỒNG HEARTBEAT CLICK LIÊN TỤC KHÔNG DELAY
+-- KHỞI TẠO ĐA LUỒNG HEARTBEAT CLICK LIÊN TỤC KHÔNG DELAY (RANGE 150)
 -- ========================================================
 for threadId = 1, 5 do
     task.spawn(function()
@@ -198,7 +200,7 @@ for threadId = 1, 5 do
                 pcall(function()
                     local allBreakables = BreakablesFolder:GetChildren()
                     local zonePos = CurrentActiveZone.Position
-                    local maxRange = 150 -- ĐÃ TĂNG BÁN KÍNH QUÉT LOGIC LÊN 150 STUDS
+                    local maxRange = 150
                     
                     local attacksInThisTurn = 0
                     
