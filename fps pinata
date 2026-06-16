@@ -2,10 +2,28 @@ repeat task.wait() until game:IsLoaded()
 
 local Players = game:GetService("Players")
 local StarterGui = game:GetService("StarterGui")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 task.wait(10)
+
+-- Định nghĩa các đường dẫn tài nguyên cho phần Auto Damage
+local DamageRemote = ReplicatedStorage:WaitForChild("Network"):WaitForChild("Breakables_PlayerDealDamage")
+local BreakablesFolder = workspace:FindFirstChild("__THINGS") and workspace.__THINGS:FindFirstChild("Breakables")
+local CurrentActiveZone = nil
+
+-- Khởi tạo part hiển thị bán kính (Vòng tròn laze trực quan tăng lên 150 studs)
+local VisualRadiusPart = Instance.new("CylinderHandleAdornment")
+VisualRadiusPart.Name = "FarmRadiusVisual"
+VisualRadiusPart.Color3 = Color3.fromRGB(52, 152, 219) -- Màu xanh dương Neon
+VisualRadiusPart.Transparency = 0.85 -- Độ trong suốt
+VisualRadiusPart.Radius = 150 -- ĐA TĂNG HIỂN THỊ BÁN KÍNH LÊN 150 STUDS
+VisualRadiusPart.Height = 1
+VisualRadiusPart.Angle = 360
+VisualRadiusPart.Adornee = nil
+VisualRadiusPart.Parent = workspace.CurrentCamera
 
 -- ========================================================
 -- CẤU HÌNH ĐIỀU KIỆN LỌC (GIỮ PLAYER & LỌC BREAKABLES)
@@ -37,11 +55,10 @@ local function boxifyBreakable(v)
         if v:IsA("BasePart") and isBreakableOrPetMesh(v) and not string.find(v.Name, "Pet") then
             v.Shape = Enum.PartType.Block
             v.Size = Vector3.new(1.5, 1.5, 1.5)
-            v.Color = Color3.fromRGB(52, 152, 219) -- Xanh dương
+            v.Color = Color3.fromRGB(52, 152, 219)
             v.Material = Enum.Material.SmoothPlastic
             v.CastShadow = false
             
-            -- Quét xóa sạch hiệu ứng nằm bên trong khối Breakable này
             for _, child in ipairs(v:GetChildren()) do
                 if child:IsA("ParticleEmitter") or child:IsA("Trail") or child:IsA("Smoke") 
                 or child:IsA("Fire") or child:IsA("Beam") or child:IsA("PointLight") 
@@ -75,7 +92,6 @@ end)
 -- HÀM DIỆT SẠCH 100% HIỆU ỨNG RÁC (KỂ CẢ TRONG BREAKABLES)
 -- ========================================================
 local function removeAllEffects(obj)
-    -- Tuyệt đối không xóa hiệu ứng bám trên người Player (để tránh lỗi nhân vật)
     if not isPlayerBody(obj) then
         if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Smoke") 
         or obj:IsA("Fire") or obj:IsA("Beam") or obj:IsA("PointLight") 
@@ -88,12 +104,11 @@ local function removeAllEffects(obj)
     end
 end
 
--- Chạy quét diệt sạch hiệu ứng lóa mắt ngay lập tức
 for _, v in ipairs(game:GetDescendants()) do pcall(removeAllEffects, v) end
 game.DescendantAdded:Connect(function(v) pcall(removeAllEffects, v) end)
 
 -- ========================================================
--- PHẦN 3: DIỆT SẠCH HÌNH ẢNH UI - BẢO VỆ XOAY CAMERA
+-- PHẦN UI - BẢO VỆ XOAY CAMERA
 -- ========================================================
 pcall(function()
     StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.All, false)
@@ -128,5 +143,86 @@ if camera then
     end
     camera.ChildAdded:Connect(function(child)
         if child:IsA("Model") or child:IsA("BasePart") then task.wait() child:Destroy() end
+    end)
+end
+
+-- ========================================================
+-- LUỒNG QUÉT ZONE (CẬP NHẬT VÒNG TRÒN LAZE BÁN KÍNH TRỰC QUAN)
+-- ========================================================
+task.spawn(function()
+    while true do
+        pcall(function()
+            local character = LocalPlayer.Character
+            local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+            if not rootPart then 
+                CurrentActiveZone = nil
+                VisualRadiusPart.Adornee = nil
+                return 
+            end
+            
+            local playerPos = rootPart.Position
+            local nearestZone = nil
+            local minZoneDistance = math.huge
+            
+            for _, desc in ipairs(workspace:GetDescendants()) do
+                if desc:IsA("BasePart") and desc.Name == "BREAK_ZONE" then
+                    local dist = (desc.Position - playerPos).Magnitude
+                    -- Giữ tầm nhận diện zone hợp lý xung quanh người chơi để kích hoạt
+                    if dist <= 80 and dist < minZoneDistance then
+                        minZoneDistance = dist
+                        nearestZone = desc
+                    end
+                end
+            end
+            
+            CurrentActiveZone = nearestZone
+            
+            if nearestZone then
+                VisualRadiusPart.Adornee = nearestZone
+                VisualRadiusPart.CFrame = CFrame.new(0, -nearestZone.Size.Y/2, 0) * CFrame.Angles(math.rad(90), 0, 0)
+            else
+                VisualRadiusPart.Adornee = nil
+            end
+        end)
+        task.wait(1)
+    end
+end)
+
+-- ========================================================
+-- KHỞI TẠO ĐA LUỒNG HEARTBEAT CLICK LIÊN TỤC KHÔNG DELAY
+-- ========================================================
+for threadId = 1, 5 do
+    task.spawn(function()
+        RunService.Heartbeat:Connect(function()
+            if CurrentActiveZone and BreakablesFolder then
+                pcall(function()
+                    local allBreakables = BreakablesFolder:GetChildren()
+                    local zonePos = CurrentActiveZone.Position
+                    local maxRange = 150 -- ĐÃ TĂNG BÁN KÍNH QUÉT LOGIC LÊN 150 STUDS
+                    
+                    local attacksInThisTurn = 0
+                    
+                    for i = threadId, #allBreakables, 5 do
+                        local breakable = allBreakables[i]
+                        if breakable then
+                            local primaryPart = breakable:FindFirstChildOfClass("Part") or breakable:FindFirstChildOfClass("MeshPart")
+                            
+                            if primaryPart then
+                                local offset = primaryPart.Position - zonePos
+                                if math.abs(offset.X) <= maxRange and math.abs(offset.Z) <= maxRange then
+                                    
+                                    DamageRemote:FireServer(breakable.Name)
+                                    attacksInThisTurn = attacksInThisTurn + 1
+                                    
+                                    if attacksInThisTurn >= 5 then
+                                        break
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end)
+            end
+        end)
     end)
 end
