@@ -1,17 +1,24 @@
 repeat task.wait() until game:IsLoaded()
-wait(15)
+wait(5)
 
--- Hàm kiểm tra xem đối tượng có thuộc hệ thống Breakables hay không
-local function isBreakableOrPetMesh(v)
-    -- Kiểm tra nếu tên đối tượng hoặc tên các thư mục cha có chứa chữ "Breakable" hoặc "Breakables"
+local Players = game:GetService("Players")
+
+-- Hàm kiểm tra xem đối tượng có thuộc về Player hoặc Breakables hay không
+local function isProtected(v)
+    -- 1. Kiểm tra nếu thuộc hệ thống Breakables
     if string.find(v.Name, "Breakable") then
         return true
     end
     
-    -- Quét ngược lên các đời cha (Parent) để đảm bảo không ẩn nhầm Pet.Mesh nằm sâu bên trong
+    -- Quét ngược lên các đời cha (Parent) để kiểm tra Character hoặc Breakables
     local current = v.Parent
     while current and current ~= game do
+        -- Kiểm tra thư mục chứa Breakable
         if string.find(current.Name, "Breakable") then
+            return true
+        end
+        -- Kiểm tra nếu đối tượng nằm trong Character của một Player bất kỳ
+        if current:IsA("Model") and Players:GetPlayerFromCharacter(current) then
             return true
         end
         current = current.Parent
@@ -24,8 +31,8 @@ end
 for _, v in next, workspace:GetDescendants() do
     pcall(function()
         if v:IsA("BasePart") then
-            -- Chỉ ẩn nếu KHÔNG thuộc hệ thống Breakables
-            if not isBreakableOrPetMesh(v) then
+            -- Chỉ ẩn nếu KHÔNG thuộc diện bảo vệ (Breakables, Pet, Player)
+            if not isProtected(v) then
                 v.Transparency = 1
             end
         end
@@ -36,14 +43,14 @@ end
 for _, v in next, getnilinstances() do
     pcall(function()
         if v:IsA("BasePart") then
-            if not isBreakableOrPetMesh(v) then
+            if not isProtected(v) then
                 v.Transparency = 1
             end
         end
 
         for _, v1 in next, v:GetDescendants() do
             if v1:IsA("BasePart") then
-                if not isBreakableOrPetMesh(v1) then
+                if not isProtected(v1) then
                     v1.Transparency = 1
                 end
             end
@@ -55,7 +62,7 @@ end
 workspace.DescendantAdded:Connect(function(v)
     pcall(function()
         if v:IsA("BasePart") then
-            if not isBreakableOrPetMesh(v) then
+            if not isProtected(v) then
                 v.Transparency = 1
             end
         end
@@ -64,8 +71,8 @@ end)
 
 -- XÓA CÁC HIỆU ỨNG RÁC GÂY LAG (Hạt, ánh sáng, khói lửa...)
 local function removeEffects(obj)
-    -- Chỉ xóa hiệu ứng nếu nó KHÔNG nằm trong thư mục Breakables (tránh lỗi hiển thị của game)
-    if not isBreakableOrPetMesh(obj) then
+    -- Chỉ xóa hiệu ứng nếu nó KHÔNG thuộc diện bảo vệ
+    if not isProtected(obj) then
         if obj:IsA("ParticleEmitter")
         or obj:IsA("Trail")
         or obj:IsA("Smoke")
@@ -92,4 +99,4 @@ for _, v in ipairs(game:GetDescendants()) do
 end
 game.DescendantAdded:Connect(removeEffects)
 
-print("⚡ OPTIMIZED FPS BOOST: GIỮ LẠI BREAKABLES & PET MESH ⚡")
+print("⚡ OPTIMIZED FPS BOOST: GIỮ LẠI PLAYER, BREAKABLES & PET MESH ⚡")
