@@ -5,7 +5,7 @@ local StarterGui = game:GetService("StarterGui")
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
-task.wait(3)
+task.wait(10)
 
 -- ========================================================
 -- CẤU HÌNH ĐIỀU KIỆN LỌC (GIỮ PLAYER & LỌC BREAKABLES)
