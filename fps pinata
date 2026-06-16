@@ -5,7 +5,7 @@ local StarterGui = game:GetService("StarterGui")
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
-task.wait(5)
+task.wait(3)
 
 -- ========================================================
 -- CẤU HÌNH ĐIỀU KIỆN LỌC (GIỮ PLAYER & LỌC BREAKABLES)
@@ -13,9 +13,7 @@ task.wait(5)
 local function isPlayerBody(v)
     local current = v.Parent
     while current and current ~= game do
-        if current:IsA("Model") and Players:GetPlayerFromCharacter(current) then
-            return true
-        end
+        if current:IsA("Model") and Players:GetPlayerFromCharacter(current) then return true end
         current = current.Parent
     end
     return false
@@ -32,22 +30,23 @@ local function isBreakableOrPetMesh(v)
 end
 
 -- ========================================================
--- HÀM BIẾN BREAKABLE THÀNH KHỐI VUÔNG NHỎ MÀU ĐEN
+-- HÀM BIẾN BREAKABLE THÀNH KHỐI VUÔNG NHỎ MÀU XANH DƯƠNG
 -- ========================================================
 local function boxifyBreakable(v)
     pcall(function()
         if v:IsA("BasePart") and isBreakableOrPetMesh(v) and not string.find(v.Name, "Pet") then
-            -- Ép về khối vuông thô
             v.Shape = Enum.PartType.Block
             v.Size = Vector3.new(1.5, 1.5, 1.5)
-            
-            -- CHỈNH THÀNH MÀU ĐEN TUYỀN (GIẢM LÓA & GIẢM ĐỘ SÁNG)
-            v.Color = Color3.fromRGB(0, 0, 0)
+            v.Color = Color3.fromRGB(52, 152, 219) -- Xanh dương
             v.Material = Enum.Material.SmoothPlastic
-            v.CastShadow = false -- Tắt bóng đổ của khối vuông để tăng thêm FPS
+            v.CastShadow = false
             
+            -- Quét xóa sạch hiệu ứng nằm bên trong khối Breakable này
             for _, child in ipairs(v:GetChildren()) do
-                if child:IsA("SpecialMesh") or child:IsA("BlockMesh") then
+                if child:IsA("ParticleEmitter") or child:IsA("Trail") or child:IsA("Smoke") 
+                or child:IsA("Fire") or child:IsA("Beam") or child:IsA("PointLight") 
+                or child:IsA("SpotLight") or child:IsA("SurfaceLight") or child:IsA("SpecialMesh") 
+                or child:IsA("BlockMesh") then
                     child:Destroy()
                 end
             end
@@ -55,12 +54,79 @@ local function boxifyBreakable(v)
     end)
 end
 
--- ========================================================
--- PHẦN 1: TỐI ƯU FPS ĐỒ HỌA, ẨN MAP & BIẾN ĐỔI BREAKABLES
--- ========================================================
+-- Quét ẩn map và boxify hệ thống hiện tại
 for _, v in next, workspace:GetDescendants() do
     pcall(function()
         if v:IsA("BasePart") then
-            if isPlayerBody(v) then
-                -- Giữ nguyên Player
-            elseif isBreakableOrPetMesh(v)
+            if isPlayerBody(v) then elseif isBreakableOrPetMesh(v) then boxifyBreakable(v) else v.Transparency = 1 end
+        end
+    end)
+end
+
+workspace.DescendantAdded:Connect(function(v)
+    pcall(function()
+        if v:IsA("BasePart") then
+            if isPlayerBody(v) then elseif isBreakableOrPetMesh(v) then boxifyBreakable(v) else v.Transparency = 1 end
+        end
+    end)
+end)
+
+-- ========================================================
+-- HÀM DIỆT SẠCH 100% HIỆU ỨNG RÁC (KỂ CẢ TRONG BREAKABLES)
+-- ========================================================
+local function removeAllEffects(obj)
+    -- Tuyệt đối không xóa hiệu ứng bám trên người Player (để tránh lỗi nhân vật)
+    if not isPlayerBody(obj) then
+        if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Smoke") 
+        or obj:IsA("Fire") or obj:IsA("Beam") or obj:IsA("PointLight") 
+        or obj:IsA("SpotLight") or obj:IsA("SurfaceLight") then
+            obj:Destroy()
+        end
+        if obj:IsA("PostEffect") then
+            obj.Enabled = false
+        end
+    end
+end
+
+-- Chạy quét diệt sạch hiệu ứng lóa mắt ngay lập tức
+for _, v in ipairs(game:GetDescendants()) do pcall(removeAllEffects, v) end
+game.DescendantAdded:Connect(function(v) pcall(removeAllEffects, v) end)
+
+-- ========================================================
+-- PHẦN 3: DIỆT SẠCH HÌNH ẢNH UI - BẢO VỆ XOAY CAMERA
+-- ========================================================
+pcall(function()
+    StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.All, false)
+end)
+
+local function obliterateVisualUI(v)
+    if v:IsA("Frame") or v:IsA("TextLabel") or v:IsA("ImageLabel") 
+    or v:IsA("TextButton") or v:IsA("ImageButton") or v:IsA("ScrollingFrame")
+    or v:IsA("BillboardGui") or v:IsA("SurfaceGui") then
+        
+        local guiParent = v:FindFirstAncestorOfClass("ScreenGui")
+        if guiParent and (
+           guiParent.Name == "CoordinateTrackerGui" or 
+           guiParent.Name == "BackroomsGridTracker" or 
+           guiParent.Name == "BackroomsUiToggleGui" or 
+           guiParent.Name == "SimpleAutoClickGui" or 
+           guiParent.Name == "BackroomsFixUiGui" or 
+           guiParent.Name == "BackroomsPureUiGui") then
+            return
+        end
+        v:Destroy()
+    end
+end
+
+for _, v in ipairs(PlayerGui:GetDescendants()) do pcall(obliterateVisualUI, v) end
+PlayerGui.DescendantAdded:Connect(function(v) task.wait() pcall(obliterateVisualUI, v) end)
+
+local camera = workspace.CurrentCamera
+if camera then
+    for _, child in ipairs(camera:GetChildren()) do
+        if child:IsA("Model") or child:IsA("BasePart") then child:Destroy() end
+    end
+    camera.ChildAdded:Connect(function(child)
+        if child:IsA("Model") or child:IsA("BasePart") then task.wait() child:Destroy() end
+    end)
+end
