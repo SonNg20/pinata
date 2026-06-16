@@ -12,7 +12,7 @@ local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
-task.wait(15)
+task.wait(10)
 
 -- Định nghĩa tài nguyên cho phần Auto Damage
 local DamageRemote = ReplicatedStorage:WaitForChild("Network"):WaitForChild("Breakables_PlayerDealDamage")
@@ -43,7 +43,6 @@ local function isPlayerBody(v)
 end
 
 local function isBreakableOrPetMesh(v)
-    -- Nhận diện cả hòm (Breakable) và thú cưng (Pet) dựa trên tên gọi hệ thống
     if string.find(v.Name, "Breakable") or string.find(v.Name, "Pet") then return true end
     local current = v.Parent
     while current and current ~= game do
@@ -54,17 +53,47 @@ local function isBreakableOrPetMesh(v)
 end
 
 -- ========================================================
+-- HÀM TẮT ANIMATION CỦA PLAYER
+-- ========================================================
+local function disablePlayerAnimations(character)
+    if not character then return end
+    
+    -- Tắt script điều khiển hoạt ảnh mặc định của Roblox bám trên người nhân vật
+    local animateScript = character:WaitForChild("Animate", 5)
+    if animateScript then
+        animateScript.Enabled = false
+    end
+    
+    -- Tìm và dừng toàn bộ các track animation đang chạy ngầm trong Humanoid
+    local humanoid = character:WaitForChild("Humanoid", 5)
+    if humanoid then
+        local animator = humanoid:FindFirstChildOfClass("Animator")
+        if animator then
+            for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+                track:Stop(0)
+            end
+            -- Chặn không cho nạp hoạt ảnh mới
+            animator.AnimationPlayed:Connect(function(track)
+                track:Stop(0)
+            end)
+        end
+    end
+end
+
+-- Tự động chạy hàm tắt animation mỗi khi nhân vật của bạn được tải ra (Spawn)
+if LocalPlayer.Character then disablePlayerAnimations(LocalPlayer.Character) end
+LocalPlayer.CharacterAdded:Connect(disablePlayerAnimations)
+
+-- ========================================================
 -- HÀM XỬ LÝ ĐỒ HỌA: HÒM THÀNH KHỐI XÁM - DIỆT SẠCH MESH CỦA PET
 -- ========================================================
 local function processObjectFPS(v)
     pcall(function()
         if v:IsA("BasePart") and isBreakableOrPetMesh(v) then
-            -- NẾU LÀ PET: Làm tàng hình hoàn toàn để nhẹ máy (Xóa Pet hiển thị)
             if string.find(v.Name, "Pet") or (v.Parent and string.find(v.Parent.Name, "Pet")) then
                 v.Transparency = 1
                 v.CanCollide = false
             else
-                -- NẾU LÀ HÒM: Ép về dạng khối vuông màu xám trơn
                 v.Shape = Enum.PartType.Block
                 v.Size = Vector3.new(1.5, 1.5, 1.5)
                 v.Color = Color3.fromRGB(128, 128, 128)
@@ -72,7 +101,6 @@ local function processObjectFPS(v)
                 v.CastShadow = false
             end
             
-            -- Quét xóa sạch hiệu ứng lóa mắt nằm bên trong hòm và pet
             for _, child in ipairs(v:GetChildren()) do
                 if child:IsA("ParticleEmitter") or child:IsA("Trail") or child:IsA("Smoke") 
                 or child:IsA("Fire") or child:IsA("Beam") or child:IsA("PointLight") 
@@ -85,16 +113,15 @@ local function processObjectFPS(v)
     end)
 end
 
--- Quét ẩn bức tường map nền, thực hiện ép hộp hòm và tàng hình pet
 local function handleMapPart(v)
     pcall(function()
         if v:IsA("BasePart") then
             if isPlayerBody(v) then 
-                -- Giữ nguyên duy nhất nhân vật chính của bạn
+                -- Giữ nguyên hình thể nhân vật chính (hoạt ảnh đã tắt ở trên)
             elseif isBreakableOrPetMesh(v) then 
                 processObjectFPS(v)
             else 
-                v.Transparency = 1 -- Làm tàng hình các bức tường rác của map
+                v.Transparency = 1
             end
         end
     end)
@@ -103,7 +130,7 @@ end
 for _, v in next, workspace:GetDescendants() do handleMapPart(v) end
 workspace.DescendantAdded:Connect(handleMapPart)
 
--- Diệt toàn bộ các hiệu ứng môi trường lơ lửng gây nặng máy (bao gồm cả hiệu ứng của pet bám theo)
+-- Diệt toàn bộ các hiệu ứng môi trường lơ lửng gây nặng máy
 local function removeAllEffects(obj)
     if not isPlayerBody(obj) then
         if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Smoke") 
