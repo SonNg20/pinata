@@ -31,7 +31,7 @@ VisualRadiusPart.Adornee = nil
 VisualRadiusPart.Parent = workspace.CurrentCamera
 
 -- ========================================================
--- CẤU HÌNH ĐIỀU KIỆN LỌC (GIỮ PLAYER & LỌC BREAKABLES)
+-- CẤU HÌNH ĐIỀU KIỆN LỌC (GIỮ PLAYER & LỌC BREAKABLES/PETS)
 -- ========================================================
 local function isPlayerBody(v)
     local current = v.Parent
@@ -43,27 +43,36 @@ local function isPlayerBody(v)
 end
 
 local function isBreakableOrPetMesh(v)
-    if string.find(v.Name, "Breakable") then return true end
+    -- Nhận diện cả hòm (Breakable) và thú cưng (Pet) dựa trên tên gọi hệ thống
+    if string.find(v.Name, "Breakable") or string.find(v.Name, "Pet") then return true end
     local current = v.Parent
     while current and current ~= game do
-        if string.find(current.Name, "Breakable") then return true end
+        if string.find(current.Name, "Breakable") or string.find(current.Name, "Pet") then return true end
         current = current.Parent
     end
     return false
 end
 
 -- ========================================================
--- HÀM BIẾN BREAKABLE THÀNH KHỐI VUÔNG NHỎ MÀU XÁM (XÓA MÀU GỐC)
+-- HÀM XỬ LÝ ĐỒ HỌA: HÒM THÀNH KHỐI XÁM - DIỆT SẠCH MESH CỦA PET
 -- ========================================================
-local function boxifyBreakable(v)
+local function processObjectFPS(v)
     pcall(function()
-        if v:IsA("BasePart") and isBreakableOrPetMesh(v) and not string.find(v.Name, "Pet") then
-            v.Shape = Enum.PartType.Block
-            v.Size = Vector3.new(1.5, 1.5, 1.5)
-            v.Color = Color3.fromRGB(128, 128, 128)
-            v.Material = Enum.Material.SmoothPlastic
-            v.CastShadow = false
+        if v:IsA("BasePart") and isBreakableOrPetMesh(v) then
+            -- NẾU LÀ PET: Làm tàng hình hoàn toàn để nhẹ máy (Xóa Pet hiển thị)
+            if string.find(v.Name, "Pet") or (v.Parent and string.find(v.Parent.Name, "Pet")) then
+                v.Transparency = 1
+                v.CanCollide = false
+            else
+                -- NẾU LÀ HÒM: Ép về dạng khối vuông màu xám trơn
+                v.Shape = Enum.PartType.Block
+                v.Size = Vector3.new(1.5, 1.5, 1.5)
+                v.Color = Color3.fromRGB(128, 128, 128)
+                v.Material = Enum.Material.SmoothPlastic
+                v.CastShadow = false
+            end
             
+            -- Quét xóa sạch hiệu ứng lóa mắt nằm bên trong hòm và pet
             for _, child in ipairs(v:GetChildren()) do
                 if child:IsA("ParticleEmitter") or child:IsA("Trail") or child:IsA("Smoke") 
                 or child:IsA("Fire") or child:IsA("Beam") or child:IsA("PointLight") 
@@ -76,16 +85,16 @@ local function boxifyBreakable(v)
     end)
 end
 
--- Quét ẩn bức tường map nền và thực hiện ép hộp xóa màu hòm
+-- Quét ẩn bức tường map nền, thực hiện ép hộp hòm và tàng hình pet
 local function handleMapPart(v)
     pcall(function()
         if v:IsA("BasePart") then
             if isPlayerBody(v) then 
-                -- Giữ nguyên nhân vật của bạn
+                -- Giữ nguyên duy nhất nhân vật chính của bạn
             elseif isBreakableOrPetMesh(v) then 
-                boxifyBreakable(v)
+                processObjectFPS(v)
             else 
-                v.Transparency = 1
+                v.Transparency = 1 -- Làm tàng hình các bức tường rác của map
             end
         end
     end)
@@ -94,7 +103,7 @@ end
 for _, v in next, workspace:GetDescendants() do handleMapPart(v) end
 workspace.DescendantAdded:Connect(handleMapPart)
 
--- Diệt toàn bộ các hiệu ứng môi trường lơ lửng gây nặng máy
+-- Diệt toàn bộ các hiệu ứng môi trường lơ lửng gây nặng máy (bao gồm cả hiệu ứng của pet bám theo)
 local function removeAllEffects(obj)
     if not isPlayerBody(obj) then
         if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Smoke") 
