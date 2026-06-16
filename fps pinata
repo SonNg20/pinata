@@ -1,102 +1,66 @@
 repeat task.wait() until game:IsLoaded()
-wait(5)
 
 local Players = game:GetService("Players")
+local StarterGui = game:GetService("StarterGui")
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
--- Hàm kiểm tra xem đối tượng có thuộc về Player hoặc Breakables hay không
-local function isProtected(v)
-    -- 1. Kiểm tra nếu thuộc hệ thống Breakables
-    if string.find(v.Name, "Breakable") then
-        return true
-    end
-    
-    -- Quét ngược lên các đời cha (Parent) để kiểm tra Character hoặc Breakables
+task.wait(5)
+
+-- ========================================================
+-- CẤU HÌNH ĐIỀU KIỆN LỌC (GIỮ PLAYER & LỌC BREAKABLES)
+-- ========================================================
+local function isPlayerBody(v)
     local current = v.Parent
     while current and current ~= game do
-        -- Kiểm tra thư mục chứa Breakable
-        if string.find(current.Name, "Breakable") then
-            return true
-        end
-        -- Kiểm tra nếu đối tượng nằm trong Character của một Player bất kỳ
         if current:IsA("Model") and Players:GetPlayerFromCharacter(current) then
             return true
         end
         current = current.Parent
     end
-    
     return false
 end
 
--- QUÉT WORKSPACE HIỆN TẠI
-for _, v in next, workspace:GetDescendants() do
-    pcall(function()
-        if v:IsA("BasePart") then
-            -- Chỉ ẩn nếu KHÔNG thuộc diện bảo vệ (Breakables, Pet, Player)
-            if not isProtected(v) then
-                v.Transparency = 1
-            end
-        end
-    end)
+local function isBreakableOrPetMesh(v)
+    if string.find(v.Name, "Breakable") then return true end
+    local current = v.Parent
+    while current and current ~= game do
+        if string.find(current.Name, "Breakable") then return true end
+        current = current.Parent
+    end
+    return false
 end
 
--- QUÉT NIL INSTANCES (Các object bị ẩn trong bộ nhớ)
-for _, v in next, getnilinstances() do
+-- ========================================================
+-- HÀM BIẾN BREAKABLE THÀNH KHỐI VUÔNG NHỎ MÀU ĐEN
+-- ========================================================
+local function boxifyBreakable(v)
     pcall(function()
-        if v:IsA("BasePart") then
-            if not isProtected(v) then
-                v.Transparency = 1
-            end
-        end
-
-        for _, v1 in next, v:GetDescendants() do
-            if v1:IsA("BasePart") then
-                if not isProtected(v1) then
-                    v1.Transparency = 1
+        if v:IsA("BasePart") and isBreakableOrPetMesh(v) and not string.find(v.Name, "Pet") then
+            -- Ép về khối vuông thô
+            v.Shape = Enum.PartType.Block
+            v.Size = Vector3.new(1.5, 1.5, 1.5)
+            
+            -- CHỈNH THÀNH MÀU ĐEN TUYỀN (GIẢM LÓA & GIẢM ĐỘ SÁNG)
+            v.Color = Color3.fromRGB(0, 0, 0)
+            v.Material = Enum.Material.SmoothPlastic
+            v.CastShadow = false -- Tắt bóng đổ của khối vuông để tăng thêm FPS
+            
+            for _, child in ipairs(v:GetChildren()) do
+                if child:IsA("SpecialMesh") or child:IsA("BlockMesh") then
+                    child:Destroy()
                 end
             end
         end
     end)
 end
 
--- XỬ LÝ ĐỐI TƯỢNG MỚI SPAWN RA MAP
-workspace.DescendantAdded:Connect(function(v)
+-- ========================================================
+-- PHẦN 1: TỐI ƯU FPS ĐỒ HỌA, ẨN MAP & BIẾN ĐỔI BREAKABLES
+-- ========================================================
+for _, v in next, workspace:GetDescendants() do
     pcall(function()
         if v:IsA("BasePart") then
-            if not isProtected(v) then
-                v.Transparency = 1
-            end
-        end
-    end)
-end)
-
--- XÓA CÁC HIỆU ỨNG RÁC GÂY LAG (Hạt, ánh sáng, khói lửa...)
-local function removeEffects(obj)
-    -- Chỉ xóa hiệu ứng nếu nó KHÔNG thuộc diện bảo vệ
-    if not isProtected(obj) then
-        if obj:IsA("ParticleEmitter")
-        or obj:IsA("Trail")
-        or obj:IsA("Smoke")
-        or obj:IsA("Fire")
-        or obj:IsA("Beam") then
-            obj:Destroy()
-        end
-
-        if obj:IsA("PointLight")
-        or obj:IsA("SpotLight")
-        or obj:IsA("SurfaceLight") then
-            obj:Destroy()
-        end
-
-        if obj:IsA("PostEffect") then
-            obj.Enabled = false
-        end
-    end
-end
-
--- Chạy xóa hiệu ứng nền
-for _, v in ipairs(game:GetDescendants()) do
-    removeEffects(v)
-end
-game.DescendantAdded:Connect(removeEffects)
-
-print("⚡ OPTIMIZED FPS BOOST: GIỮ LẠI PLAYER, BREAKABLES & PET MESH ⚡")
+            if isPlayerBody(v) then
+                -- Giữ nguyên Player
+            elseif isBreakableOrPetMesh(v)
