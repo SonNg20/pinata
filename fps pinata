@@ -12,6 +12,9 @@ local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 task.wait(10)
 
+-- Bộ lưu trữ danh sách các kết nối sự kiện để dọn dẹp RAM (Chống Memory Leak)
+local PlayerConnections = {}
+
 -- ========================================================
 -- CẤU HÌNH ĐIỀU KIỆN LỌC (GIỮ PLAYER & LỌC BREAKABLES/PETS)
 -- ========================================================
@@ -25,37 +28,33 @@ local function isPlayerBody(v)
 end
 
 local function isBreakableOrPetMesh(v)
-    if string.find(v.Name, "Breakable") or string.find(v.Name, "Pet") then return true end
+    local name = v.Name
+    if string.find(name, "Breakable") or string.find(name, "Pet") then return true end
     local current = v.Parent
     while current and current ~= game do
-        if string.find(current.Name, "Breakable") or string.find(current.Name, "Pet") then return true end
+        local currName = current.Name
+        if string.find(currName, "Breakable") or string.find(currName, "Pet") then return true end
         current = current.Parent
     end
     return false
 end
 
 -- ========================================================
--- HÀM TẮT ANIMATION CỦA TẤT CẢ PLAYER (BẢO GỒM BẢN THÂN VÀ NGƯỜI KHÁC)
+-- HÀM TẮT ANIMATION CỦA PLAYER
 -- ========================================================
 local function disableCharacterAnimations(character)
     if not character then return end
     
-    -- 1. Tắt script điều khiển hoạt ảnh mặc định Animate
-    local animateScript = character:WaitForChild("Animate", 5)
-    if animateScript then
-        animateScript.Enabled = false
-    end
+    local animateScript = character:WaitForChild("Animate", 3) -- Giảm timeout xuống để giải phóng RAM nhanh
+    if animateScript then animateScript.Enabled = false end
     
-    -- 2. Tìm Humanoid và chặn đứng các Track hoạt ảnh đang/sẽ chạy
-    local humanoid = character:WaitForChild("Humanoid", 5)
+    local humanoid = character:WaitForChild("Humanoid", 3)
     if humanoid then
         local animator = humanoid:FindFirstChildOfClass("Animator")
         if animator then
-            -- Dừng các hoạt ảnh đang chạy sẵn
             for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
                 track:Stop(0)
             end
-            -- Đóng băng ngay lập tức nếu phát hiện nạp hoạt ảnh mới
             animator.AnimationPlayed:Connect(function(track)
                 track:Stop(0)
             end)
@@ -63,88 +62,102 @@ local function disableCharacterAnimations(character)
     end
 end
 
--- Quét và áp dụng cho những người chơi đang có sẵn trong Server
-for _, player in ipairs(Players:GetPlayers()) do
-    if player.Character then
-        disableCharacterAnimations(player.Character)
+-- Hàm quản lý kết nối an toàn cho Player (Tự hủy khi Player rời game để giải phóng RAM)
+local function trackPlayer(player)
+    if player == LocalPlayer then
+        if player.Character then disableCharacterAnimations(player.Character) end
+        player.CharacterAdded:Connect(disableCharacterAnimations)
+        return
     end
-    -- Theo dõi nếu họ bị chết hoặc đổi nhân vật mới (Respawn)
-    player.CharacterAdded:Connect(disableCharacterAnimations)
+
+    local conn = player.CharacterAdded:Connect(disableCharacterAnimations)
+    PlayerConnections[player] = conn
+    if player.Character then disableCharacterAnimations(player.Character) end
 end
 
--- Theo dõi những người chơi mới vừa mới bấm vào tham gia Server (Join Game)
-Players.PlayerAdded:Connect(function(player)
-    player.CharacterAdded:Connect(disableCharacterAnimations)
+for _, p in ipairs(Players:GetPlayers()) do trackPlayer(p) end
+Players.PlayerAdded:Connect(trackPlayer)
+
+-- GIẢI PHÓNG RAM: Khi người chơi khác thoát, xóa sạch kết nối của họ khỏi bộ nhớ đệm Lua
+Players.PlayerRemoving:Connect(function(player)
+    if PlayerConnections[player] then
+        PlayerConnections[player]:Disconnect()
+        PlayerConnections[player] = nil
+    end
 end)
 
 -- ========================================================
--- HÀM XỬ LÝ ĐỒ HỌA: HÒM THÀNH KHỐI XÁM - DIỆT SẠCH MESH CỦA PET
+-- HÀM XỬ LÝ ĐỒ HỌA TỐI ƯU RAM (HÒM XÁM - TÀNG HÌNH PET)
 -- ========================================================
 local function processObjectFPS(v)
-    pcall(function()
-        if v:IsA("BasePart") and isBreakableOrPetMesh(v) then
-            if string.find(v.Name, "Pet") or (v.Parent and string.find(v.Parent.Name, "Pet")) then
-                v.Transparency = 1
-                v.CanCollide = false
-            else
-                v.Shape = Enum.PartType.Block
-                v.Size = Vector3.new(1.5, 1.5, 1.5)
-                v.Color = Color3.fromRGB(128, 128, 128)
-                v.Material = Enum.Material.SmoothPlastic
-                v.CastShadow = false
-            end
-            
-            for _, child in ipairs(v:GetChildren()) do
-                if child:IsA("ParticleEmitter") or child:IsA("Trail") or child:IsA("Smoke") 
-                or child:IsA("Fire") or child:IsA("Beam") or child:IsA("PointLight") 
-                or child:IsA("SpotLight") or child:IsA("SurfaceLight") or child:IsA("SpecialMesh") 
-                or child:IsA("BlockMesh") then
-                    child:Destroy()
-                end
-            end
+    if not v:IsA("BasePart") then return end
+    
+    if isBreakableOrPetMesh(v) then
+        if string.find(v.Name, "Pet") or (v.Parent and string.find(v.Parent.Name, "Pet")) then
+            v.Transparency = 1
+            v.CanCollide = false
+        else
+            v.Shape = Enum.PartType.Block
+            v.Size = Vector3.new(1.5, 1.5, 1.5)
+            v.Color = Color3.fromRGB(128, 128, 128)
+            v.Material = Enum.Material.SmoothPlastic
+            v.CastShadow = false
         end
-    end)
-end
-
-local function handleMapPart(v)
-    pcall(function()
-        if v:IsA("BasePart") then
-            if isPlayerBody(v) then 
-                -- Giữ nguyên hình thể người để ko bị mất xác (hoạt ảnh đã đóng băng ở trên)
-            elseif isBreakableOrPetMesh(v) then 
-                processObjectFPS(v)
-            else 
-                v.Transparency = 1
+        
+        -- Dọn dẹp hiệu ứng trong hòm
+        for _, child in ipairs(v:GetChildren()) do
+            if child:IsA("ParticleEmitter") or child:IsA("Trail") or child:IsA("Smoke") 
+            or child:IsA("Fire") or child:IsA("Beam") or child:IsA("PointLight") 
+            or child:IsA("SpotLight") or child:IsA("SurfaceLight") or child:IsA("SpecialMesh") 
+            or child:IsA("BlockMesh") then
+                child:Destroy()
             end
-        end
-    end)
-end
-
-for _, v in next, workspace:GetDescendants() do handleMapPart(v) end
-workspace.DescendantAdded:Connect(handleMapPart)
-
--- Diệt toàn bộ các hiệu ứng môi trường lơ lửng gây nặng máy
-local function removeAllEffects(obj)
-    if not isPlayerBody(obj) then
-        if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Smoke") 
-        or obj:IsA("Fire") or obj:IsA("Beam") or obj:IsA("PointLight") 
-        or obj:IsA("SpotLight") or obj:IsA("SurfaceLight") then
-            obj:Destroy()
-        end
-        if obj:IsA("PostEffect") then
-            obj.Enabled = false
         end
     end
 end
-for _, v in ipairs(game:GetDescendants()) do pcall(removeAllEffects, v) end
-game.DescendantAdded:Connect(function(v) pcall(removeAllEffects, v) end)
+
+local function handleMapPart(v)
+    if not v:IsA("BasePart") then return end
+    if isPlayerBody(v) then return end
+    
+    if isBreakableOrPetMesh(v) then 
+        processObjectFPS(v)
+    else 
+        v.Transparency = 1
+    end
+end
+
+-- TỐI ƯU PHẠM VI QUÉT: Thay vì quét toàn bộ game, chỉ quét các vật thể trong Workspace
+for _, v in ipairs(workspace:GetDescendants()) do 
+    pcall(handleMapPart, v) 
+end
+
+-- Thay vì game.DescendantAdded, ta chỉ thu hẹp phạm vi nghe sự kiện ở workspace để tiết kiệm RAM
+workspace.DescendantAdded:Connect(function(v)
+    pcall(handleMapPart, v)
+end)
+
+-- ========================================================
+-- HÀM DIỆT HIỆU ỨNG TRONG WORKSPACE (RÚT GỌN PHẠM VI QUÉT)
+-- ========================================================
+local function removeAllEffects(obj)
+    if isPlayerBody(obj) then return end
+    
+    if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Smoke") 
+    or obj:IsA("Fire") or obj:IsA("Beam") or obj:IsA("PointLight") 
+    or obj:IsA("SpotLight") or obj:IsA("SurfaceLight") then
+        obj:Destroy()
+    elseif obj:IsA("PostEffect") then
+        obj.Enabled = false
+    end
+end
+
+for _, v in ipairs(workspace:GetDescendants()) do pcall(removeAllEffects, v) end
 
 -- ========================================================
 -- PHẦN UI - BẢO VỆ XOAY CAMERA AN TOÀN
 -- ========================================================
-pcall(function()
-    StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.All, false)
-end)
+pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.All, false) end)
 
 local function obliterateVisualUI(v)
     if v:IsA("Frame") or v:IsA("TextLabel") or v:IsA("ImageLabel") 
