@@ -1,9 +1,9 @@
--- Khóa FPS về mức 7 ngay lập tức để tối ưu phần cứng cực hạn khi treo máy
+-- 1. Khóa FPS về mức 15 (Mức tối ưu để Luau dọn rác RAM tốt nhất, không bị nghẽn)
 if setfpscap then
-    setfpscap(7)
+    setfpscap(15)
 end
 
--- Ép chất lượng đồ họa Engine xuống mức thấp nhất
+-- 2. Ép chất lượng đồ họa Engine xuống mức thấp nhất
 local settings = settings()
 if settings and settings.Rendering then
     pcall(function()
@@ -20,21 +20,16 @@ local ContentProvider = game:GetService("ContentProvider")
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
-task.wait(10)
-
-local PlayerConnections = {}
+task.wait(5)
 
 -- ========================================================
--- LUỒNG ÉP GIẢI PHÓNG RAM VÀ XÓA SẠCH BỘ ĐỆM (MỖI 5 GIÂY)
+-- LUỒNG DỌN RÁC RAM CHUẨN (BỎ HÀM HOAX PRELOAD GÂY TRÀN RAM)
 -- ========================================================
 task.spawn(function()
-    while task.wait(5) do
+    while task.wait(15) do -- Tăng lên 15 giây một lần để tránh spam CPU
         pcall(function()
-            setfenv(1, {})
-            setupvalue = nil
             gcinfo() 
             collectgarbage("collect")
-            ContentProvider:PreloadAsync({}, function() end) 
         end)
     end
 end)
@@ -43,29 +38,20 @@ end)
 -- CẤU HÌNH ĐIỀU KIỆN LỌC
 -- ========================================================
 local function isPlayerBody(v)
-    local current = v.Parent
-    while current and current ~= game do
-        if current:IsA("Model") and Players:GetPlayerFromCharacter(current) then return true end
-        current = current.Parent
-    end
-    return false
+    return v:IsDescendantOf(LocalPlayer.Character) or Players:GetPlayerFromCharacter(v:FindFirstAncestorOfClass("Model")) ~= nil
 end
 
 local function isBreakableOrPetMesh(v)
     local name = v.Name
     if string.find(name, "Breakable") or string.find(name, "Pet") then return true end
-    local current = v.Parent
-    while current and current ~= game do
-        local currName = current.Name
-        if string.find(currName, "Breakable") or string.find(currName, "Pet") then return true end
-        current = current.Parent
-    end
+    local parent = v.Parent
+    if parent and (string.find(parent.Name, "Breakable") or string.find(parent.Name, "Pet")) then return true end
     return false
 end
 
 -- Diệt hiệu ứng phát sinh (Trail, Particle, Beam)
 local function killEffectInstance(obj)
-    if isPlayerBody(obj) and obj:IsDescendantOf(LocalPlayer.Character) then return end
+    if isPlayerBody(obj) then return end
     
     if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Smoke") 
     or obj:IsA("Fire") or obj:IsA("Beam") or obj:IsA("PointLight") 
@@ -77,73 +63,57 @@ local function killEffectInstance(obj)
 end
 
 -- ========================================================
--- ẨN NGƯỜI CHƠI KHÁC VÀ GIẢI QUYẾT LỖI ANIMATION 64 TRACKS
+-- ẨN NGƯỜI CHƠI KHÁC VÀ SỬA LỖI 64 TRACKS (TỐI ƯU KẾT NỐI)
 -- ========================================================
 local function hideAndDisableCharacter(character)
-    if not character then return end
-    local player = Players:GetPlayerFromCharacter(character)
+    if not character or character == LocalPlayer.Character then return end
     
-    if player and player ~= LocalPlayer then
-        local humanoid = character:WaitForChild("Humanoid", 5)
-        if humanoid then
-            humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
-            humanoid.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
-        end
-        
-        local function makeInvisible(obj)
-            if obj:IsA("BasePart") or obj:IsA("Decal") then
-                obj.Transparency = 1
-                obj.CanCollide = false
-            elseif obj:IsA("VisualAttachment") or obj:IsA("Attachment") then
-                for _, child in ipairs(obj:GetChildren()) do killEffectInstance(child) end
-            end
-        end
-        for _, obj in ipairs(character:GetDescendants()) do makeInvisible(obj) end
-        character.DescendantAdded:Connect(makeInvisible)
-    end
-    
-    -- Tắt script Animate mặc định
-    local animateScript = character:WaitForChild("Animate", 3)
-    if animateScript then animateScript.Enabled = false end
-    
-    -- SỬA LỖI 64 TRACKS
-    local humanoid = character:WaitForChild("Humanoid", 3)
+    local humanoid = character:WaitForChild("Humanoid", 5)
     if humanoid then
+        humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+        humanoid.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
+        
+        -- Sửa lỗi 64 tracks an toàn
         local animator = humanoid:FindFirstChildOfClass("Animator")
-        if animator then
-            animator:Destroy()
-        end
+        if animator then animator:Destroy() end
         local blindAnimator = Instance.new("Animator")
         blindAnimator.Parent = humanoid
     end
-end
-
-local function trackPlayer(player)
-    if player == LocalPlayer then
-        if player.Character then hideAndDisableCharacter(player.Character) end
-        player.CharacterAdded:Connect(hideAndDisableCharacter)
-        return
+    
+    local animateScript = character:WaitForChild("Animate", 3)
+    if animateScript then animateScript.Enabled = false end
+    
+    for _, obj in ipairs(character:GetDescendants()) do
+        if obj:IsA("BasePart") or obj:IsA("Decal") then
+            obj.Transparency = 1
+            obj.CanCollide = false
+        elseif obj:IsA("VisualAttachment") or obj:IsA("Attachment") then
+            for _, child in ipairs(obj:GetChildren()) do killEffectInstance(child) end
+        end
     end
-    local conn = player.CharacterAdded:Connect(hideAndDisableCharacter)
-    PlayerConnections[player] = conn
-    if player.Character then hideAndDisableCharacter(player.Character) end
 end
 
-for _, p in ipairs(Players:GetPlayers()) do trackPlayer(p) end
-Players.PlayerAdded:Connect(trackPlayer)
-Players.PlayerRemoving:Connect(function(p)
-    if PlayerConnections[p] then PlayerConnections[p]:Disconnect() PlayerConnections[p] = nil end
+for _, p in ipairs(Players:GetPlayers()) do
+    if p ~= LocalPlayer and p.Character then hideAndDisableCharacter(p.Character) end
+    p.CharacterAdded:Connect(hideAndDisableCharacter)
+end
+Players.PlayerAdded:Connect(function(p)
+    p.CharacterAdded:Connect(hideAndDisableCharacter)
 end)
 
 -- ========================================================
--- SỬA LỖI ĐỎ (ERROR): KHÔNG DESTROY MAP, CHỈ XÓA TEXTURE/MESHID
+-- TỐI ƯU HÓA WORKSPACE (MAP, PET, HÒM)
 -- ========================================================
-local function processObjectFPS(v)
-    if isBreakableOrPetMesh(v) then
+local function handleMapPart(v)
+    if isPlayerBody(v) then return end
+    
+    if isBreakableOrPetMesh(v) then 
         if string.find(v.Name, "Pet") or (v.Parent and string.find(v.Parent.Name, "Pet")) then
-            v.Transparency = 1
-            v.CanCollide = false
-            if v:IsA("MeshPart") then v.TextureID = "" end
+            if v:IsA("BasePart") then
+                v.Transparency = 1
+                v.CanCollide = false
+                if v:IsA("MeshPart") then v.TextureID = "" end
+            end
         else
             if v:IsA("BasePart") then
                 v.Shape = Enum.PartType.Block
@@ -154,26 +124,11 @@ local function processObjectFPS(v)
                 if v:IsA("MeshPart") then v.TextureID = "" end
             end
         end
-        for _, child in ipairs(v:GetChildren()) do killEffectInstance(child) end
-    end
-end
-
-local function handleMapPart(v)
-    if isPlayerBody(v) then return end
-    
-    if isBreakableOrPetMesh(v) then 
-        processObjectFPS(v)
     else 
         if v:IsA("BasePart") then
             v.Transparency = 1 
             v.CastShadow = false
-            if v:IsA("MeshPart") then
-                v.TextureID = "" 
-            end
-            local name = string.lower(v.Name)
-            if string.find(name, "upgrade") or string.find(name, "title") then
-                return
-            end
+            if v:IsA("MeshPart") then v.TextureID = "" end
         elseif v:IsA("Texture") or v:IsA("Decal") or v:IsA("SpecialMesh") then
             v:Destroy() 
         end
@@ -190,51 +145,49 @@ workspace.DescendantAdded:Connect(function(v)
 end)
 
 -- ========================================================
--- PHẦN UI CẢI TIẾN: KHÓA TÀNG HÌNH (ẨN 100% GAME UI - KHÔNG LỖI)
+-- PHẦN UI: GIẢI PHÁP TÀNG HÌNH TẬN GỐC - CHỐNG TRÀN RAM KẾT NỐI
 -- ========================================================
 pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.All, false) end)
 
-local function forceHideUI(v)
-    -- Danh sách các GUI của phần mềm Hack/Cheat được giữ lại để bạn bấm treo máy
-    local name = v.Name
-    if name == "CoordinateTrackerGui" or 
-       name == "BackroomsGridTracker" or 
-       name == "BackroomsUiToggleGui" or 
-       name == "SimpleAutoClickGui" or 
-       name == "BackroomsFixUiGui" or 
-       name == "BackroomsPureUiGui" then
-        return
-    end
+-- Danh sách các cheat GUI được giữ lại để bấm nút điều khiển
+local whitelistGUIs = {
+    ["CoordinateTrackerGui"] = true,
+    ["BackroomsGridTracker"] = true,
+    ["BackroomsUiToggleGui"] = true,
+    ["SimpleAutoClickGui"] = true,
+    ["BackroomsFixUiGui"] = true,
+    ["BackroomsPureUiGui"] = true
+}
 
-    -- Nếu là các Khung hiển thị, Chữ, Hình ảnh của game
-    if v:IsA("Frame") or v:IsA("ScrollingFrame") then
-        v.Visible = false
-        -- Chặn đứng việc game tự động bật lại Visible
-        v:GetPropertyChangedSignal("Visible"):Connect(function()
-            v.Visible = false
-        end)
-    elseif v:IsA("TextLabel") or v:IsA("ImageLabel") or v:IsA("TextButton") or v:IsA("ImageButton") then
-        v.Visible = false
-        -- Ép tàng hình hoàn toàn để không hiển thị ra màn hình
-        pcall(function() v.BackgroundTransparency = 1 end)
-        pcall(function() v.ImageTransparency = 1 end)
-        pcall(function() v.TextTransparency = 1 end)
-        
-        v:GetPropertyChangedSignal("Visible"):Connect(function()
-            v.Visible = false
-        end)
-    elseif v:IsA("BillboardGui") or v:IsA("SurfaceGui") then
+local function applyInvisibility(v)
+    -- Nếu là ScreenGui gốc của game, ta tắt Enabled (Cách này nhẹ nhất)
+    if v:IsA("ScreenGui") and not whitelistGUIs[v.Name] then
         v.Enabled = false
-        v:GetPropertyChangedSignal("Enabled"):Connect(function()
-            v.Enabled = false
-        end)
+    -- Nếu là các UI đơn lẻ tự sinh ra ngoài ScreenGui
+    elseif (v:IsA("BillboardGui") or v:IsA("SurfaceGui")) then
+        v.Enabled = false
+    -- Nếu là UI nằm trong một Gui cha không thể tắt Enabled, ta ép tàng hình thuộc tính hiển thị
+    elseif v:IsA("GuiObject") then
+        local screenGui = v:FindFirstAncestorOfClass("ScreenGui")
+        if screenGui and whitelistGUIs[screenGui.Name] then return end -- Bỏ qua nếu thuộc cheat GUI
+        
+        v.Visible = false
     end
 end
 
--- Quét sạch và khóa toàn bộ UI trong game
-for _, v in ipairs(PlayerGui:GetDescendants()) do pcall(forceHideUI, v) end
-PlayerGui.DescendantAdded:Connect(function(v) task.wait() pcall(forceHideUI, v) end)
+-- Quét ẩn UI ban đầu
+for _, v in ipairs(PlayerGui:GetDescendants()) do pcall(applyInvisibility, v) end
 
+-- Theo dõi UI mới sinh ra (Sử dụng luồng lặp nhẹ thay vì gán Connect lặp vô hạn gây tràn RAM)
+task.spawn(function()
+    while task.wait(2) do
+        for _, v in ipairs(PlayerGui:GetDescendants()) do
+            pcall(applyInvisibility, v)
+        end
+    end
+end)
+
+-- Tối ưu Camera
 local camera = workspace.CurrentCamera
 if camera then
     for _, child in ipairs(camera:GetChildren()) do
