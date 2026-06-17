@@ -7,6 +7,7 @@ repeat task.wait() until game:IsLoaded()
 
 local Players = game:GetService("Players")
 local StarterGui = game:GetService("StarterGui")
+local ContentProvider = game:GetService("ContentProvider") -- Dịch vụ quản lý bộ đệm RAM đồ họa
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
@@ -14,6 +15,22 @@ task.wait(10)
 
 -- Bộ lưu trữ danh sách các kết nối sự kiện để dọn dẹp RAM (Chống Memory Leak)
 local PlayerConnections = {}
+
+-- ========================================================
+-- LUỒNG TỰ ĐỘNG GIẢI PHÓNG RAM ĐỊNH KỲ (MỖI 30 GIÂY)
+-- ========================================================
+task.spawn(function()
+    while task.wait(30) do
+        pcall(function()
+            -- Ép Lua thực hiện chu kỳ gom rác hệ thống (Garbage Collection)
+            gcinfo() 
+            collectgarbage("collect")
+            
+            -- Xóa toàn bộ bộ đệm hình ảnh (Texture/Mesh Cache) không còn sử dụng trong RAM
+            ContentProvider:PreloadAsync({}, function() end) 
+        end)
+    end
+end)
 
 -- ========================================================
 -- CẤU HÌNH ĐIỀU KIỆN LỌC (GIỮ PLAYER & LỌC BREAKABLES/PETS)
@@ -61,16 +78,13 @@ local function hideAndDisableCharacter(character)
     if not character then return end
     local player = Players:GetPlayerFromCharacter(character)
     
-    -- THỰC HIỆN ẨN NGƯỜI CHƠI KHÁC (Nếu không phải là chính bạn)
     if player and player ~= LocalPlayer then
-        -- Ẩn bảng tên trên đầu chống rối mắt
         local humanoid = character:WaitForChild("Humanoid", 5)
         if humanoid then
             humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
             humanoid.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
         end
         
-        -- Biến toàn bộ cơ thể, quần áo, cánh, phụ kiện thành tàng hình 100%
         local function makeInvisible(obj)
             if obj:IsA("BasePart") or obj:IsA("Decal") then
                 obj.Transparency = 1
@@ -84,7 +98,6 @@ local function hideAndDisableCharacter(character)
         character.DescendantAdded:Connect(makeInvisible)
     end
     
-    -- TẮT HOẠT ẢNH (Áp dụng cho tất cả bao gồm cả bạn để nhẹ CPU)
     local animateScript = character:WaitForChild("Animate", 3)
     if animateScript then animateScript.Enabled = false end
     
@@ -131,13 +144,13 @@ local function processObjectFPS(v)
     if not v:IsA("BasePart") then return end
     
     if isBreakableOrPetMesh(v) then
-        -- PHẦN CẬP NHẬT: Ẩn tuyệt đối 100% Pet xuất hiện trong Folder này
         if string.find(v.Name, "Pet") or (v.Parent and string.find(v.Parent.Name, "Pet")) then
             v.Transparency = 1
             v.CanCollide = false
-            if v:IsA("MeshPart") then v.MeshId = "" end -- Xóa luôn file 3D Mesh của Pet khỏi bộ nhớ RAM
+            if v:IsA("MeshPart") then 
+                v.MeshId = "" -- Giải phóng file 3D Mesh của Pet khỏi bộ nhớ RAM
+            end
         else
-            -- NẾU LÀ HÒM: Ép về khối xám trơn
             v.Shape = Enum.PartType.Block
             v.Size = Vector3.new(1.5, 1.5, 1.5)
             v.Color = Color3.fromRGB(128, 128, 128)
@@ -162,7 +175,7 @@ local function handleMapPart(v)
     end
 end
 
--- Quét môi trường hiện tại trong Workspace
+-- Quét môi trường trong Workspace để dọn dẹp ban đầu
 for _, v in ipairs(workspace:GetDescendants()) do 
     pcall(handleMapPart, v) 
     pcall(killEffectInstance, v)
