@@ -7,28 +7,10 @@ repeat task.wait() until game:IsLoaded()
 
 local Players = game:GetService("Players")
 local StarterGui = game:GetService("StarterGui")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 task.wait(10)
-
--- Định nghĩa tài nguyên cho phần Auto Damage
-local DamageRemote = ReplicatedStorage:WaitForChild("Network"):WaitForChild("Breakables_PlayerDealDamage")
-local BreakablesFolder = workspace:FindFirstChild("__THINGS") and workspace.__THINGS:FindFirstChild("Breakables")
-local CurrentActiveZone = nil
-
--- Khởi tạo vòng tròn hiển thị bán kính laze trực quan (150 studs - màu xám)
-local VisualRadiusPart = Instance.new("CylinderHandleAdornment")
-VisualRadiusPart.Name = "FarmRadiusVisual"
-VisualRadiusPart.Color3 = Color3.fromRGB(128, 128, 128)
-VisualRadiusPart.Transparency = 0.8
-VisualRadiusPart.Radius = 150
-VisualRadiusPart.Height = 1
-VisualRadiusPart.Angle = 360
-VisualRadiusPart.Adornee = nil
-VisualRadiusPart.Parent = workspace.CurrentCamera
 
 -- ========================================================
 -- CẤU HÌNH ĐIỀU KIỆN LỌC (GIỮ PLAYER & LỌC BREAKABLES/PETS)
@@ -53,26 +35,27 @@ local function isBreakableOrPetMesh(v)
 end
 
 -- ========================================================
--- HÀM TẮT ANIMATION CỦA PLAYER
+-- HÀM TẮT ANIMATION CỦA TẤT CẢ PLAYER (BẢO GỒM BẢN THÂN VÀ NGƯỜI KHÁC)
 -- ========================================================
-local function disablePlayerAnimations(character)
+local function disableCharacterAnimations(character)
     if not character then return end
     
-    -- Tắt script điều khiển hoạt ảnh mặc định của Roblox bám trên người nhân vật
+    -- 1. Tắt script điều khiển hoạt ảnh mặc định Animate
     local animateScript = character:WaitForChild("Animate", 5)
     if animateScript then
         animateScript.Enabled = false
     end
     
-    -- Tìm và dừng toàn bộ các track animation đang chạy ngầm trong Humanoid
+    -- 2. Tìm Humanoid và chặn đứng các Track hoạt ảnh đang/sẽ chạy
     local humanoid = character:WaitForChild("Humanoid", 5)
     if humanoid then
         local animator = humanoid:FindFirstChildOfClass("Animator")
         if animator then
+            -- Dừng các hoạt ảnh đang chạy sẵn
             for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
                 track:Stop(0)
             end
-            -- Chặn không cho nạp hoạt ảnh mới
+            -- Đóng băng ngay lập tức nếu phát hiện nạp hoạt ảnh mới
             animator.AnimationPlayed:Connect(function(track)
                 track:Stop(0)
             end)
@@ -80,9 +63,19 @@ local function disablePlayerAnimations(character)
     end
 end
 
--- Tự động chạy hàm tắt animation mỗi khi nhân vật của bạn được tải ra (Spawn)
-if LocalPlayer.Character then disablePlayerAnimations(LocalPlayer.Character) end
-LocalPlayer.CharacterAdded:Connect(disablePlayerAnimations)
+-- Quét và áp dụng cho những người chơi đang có sẵn trong Server
+for _, player in ipairs(Players:GetPlayers()) do
+    if player.Character then
+        disableCharacterAnimations(player.Character)
+    end
+    -- Theo dõi nếu họ bị chết hoặc đổi nhân vật mới (Respawn)
+    player.CharacterAdded:Connect(disableCharacterAnimations)
+end
+
+-- Theo dõi những người chơi mới vừa mới bấm vào tham gia Server (Join Game)
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(disableCharacterAnimations)
+end)
 
 -- ========================================================
 -- HÀM XỬ LÝ ĐỒ HỌA: HÒM THÀNH KHỐI XÁM - DIỆT SẠCH MESH CỦA PET
@@ -117,7 +110,7 @@ local function handleMapPart(v)
     pcall(function()
         if v:IsA("BasePart") then
             if isPlayerBody(v) then 
-                -- Giữ nguyên hình thể nhân vật chính (hoạt ảnh đã tắt ở trên)
+                -- Giữ nguyên hình thể người để ko bị mất xác (hoạt ảnh đã đóng băng ở trên)
             elseif isBreakableOrPetMesh(v) then 
                 processObjectFPS(v)
             else 
@@ -182,85 +175,5 @@ if camera then
     end
     camera.ChildAdded:Connect(function(child)
         if child:IsA("Model") or child:IsA("BasePart") then task.wait() child:Destroy() end
-    end)
-end
-
--- ========================================================
--- LUỒNG QUÉT ZONE (CẬP NHẬT TÂM VÒNG TRÒN LAZE BÁN KÍNH)
--- ========================================================
-task.spawn(function()
-    while true do
-        pcall(function()
-            local character = LocalPlayer.Character
-            local rootPart = character and character:FindFirstChild("HumanoidRootPart")
-            if not rootPart then 
-                CurrentActiveZone = nil
-                VisualRadiusPart.Adornee = nil
-                return 
-            end
-            
-            local playerPos = rootPart.Position
-            local nearestZone = nil
-            local minZoneDistance = math.huge
-            
-            for _, desc in ipairs(workspace:GetDescendants()) do
-                if desc:IsA("BasePart") and desc.Name == "BREAK_ZONE" then
-                    local dist = (desc.Position - playerPos).Magnitude
-                    if dist <= 80 and dist < minZoneDistance then
-                        minZoneDistance = dist
-                        nearestZone = desc
-                    end
-                end
-            end
-            
-            CurrentActiveZone = nearestZone
-            
-            if nearestZone then
-                VisualRadiusPart.Adornee = nearestZone
-                VisualRadiusPart.CFrame = CFrame.new(0, -nearestZone.Size.Y/2, 0) * CFrame.Angles(math.rad(90), 0, 0)
-            else
-                VisualRadiusPart.Adornee = nil
-            end
-        end)
-        task.wait(1)
-    end
-end)
-
--- ========================================================
--- KHỞI TẠO ĐA LUỒNG HEARTBEAT CLICK LIÊN TỤC KHÔNG DELAY (RANGE 150)
--- ========================================================
-for threadId = 1, 5 do
-    task.spawn(function()
-        RunService.Heartbeat:Connect(function()
-            if CurrentActiveZone and BreakablesFolder then
-                pcall(function()
-                    local allBreakables = BreakablesFolder:GetChildren()
-                    local zonePos = CurrentActiveZone.Position
-                    local maxRange = 150
-                    
-                    local attacksInThisTurn = 0
-                    
-                    for i = threadId, #allBreakables, 5 do
-                        local breakable = allBreakables[i]
-                        if breakable then
-                            local primaryPart = breakable:FindFirstChildOfClass("Part") or breakable:FindFirstChildOfClass("MeshPart")
-                            
-                            if primaryPart then
-                                local offset = primaryPart.Position - zonePos
-                                if math.abs(offset.X) <= maxRange and math.abs(offset.Z) <= maxRange then
-                                    
-                                    DamageRemote:FireServer(breakable.Name)
-                                    attacksInThisTurn = attacksInThisTurn + 1
-                                    
-                                    if attacksInThisTurn >= 5 then
-                                        break
-                                    end
-                                end
-                            end
-                        end
-                    end
-                end)
-            end
-        end)
     end)
 end
