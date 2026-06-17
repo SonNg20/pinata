@@ -40,12 +40,29 @@ local function isBreakableOrPetMesh(v)
 end
 
 -- ========================================================
+-- HÀM DIỆT SẠCH HIỆU ỨNG RÁC PHÁT SINH (TRAIL, PARTICLE, BEAM)
+-- ========================================================
+local function killEffectInstance(obj)
+    -- Tuyệt đối không xóa hiệu ứng bám trên người chính bạn để tránh lỗi nhân vật
+    if isPlayerBody(obj) and obj:IsDescendantOf(LocalPlayer.Character) then return end
+    
+    -- Xóa sổ ngay lập tức các vệt sọc màu, tia sét, khói lửa phát sinh khi auto click hoạt động
+    if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Smoke") 
+    or obj:IsA("Fire") or obj:IsA("Beam") or obj:IsA("PointLight") 
+    or obj:IsA("SpotLight") or obj:IsA("SurfaceLight") then
+        obj:Destroy()
+    elseif obj:IsA("PostEffect") then
+        obj.Enabled = false
+    end
+end
+
+-- ========================================================
 -- HÀM TẮT ANIMATION CỦA PLAYER
 -- ========================================================
 local function disableCharacterAnimations(character)
     if not character then return end
     
-    local animateScript = character:WaitForChild("Animate", 3) -- Giảm timeout xuống để giải phóng RAM nhanh
+    local animateScript = character:WaitForChild("Animate", 3)
     if animateScript then animateScript.Enabled = false end
     
     local humanoid = character:WaitForChild("Humanoid", 3)
@@ -62,7 +79,6 @@ local function disableCharacterAnimations(character)
     end
 end
 
--- Hàm quản lý kết nối an toàn cho Player (Tự hủy khi Player rời game để giải phóng RAM)
 local function trackPlayer(player)
     if player == LocalPlayer then
         if player.Character then disableCharacterAnimations(player.Character) end
@@ -78,7 +94,6 @@ end
 for _, p in ipairs(Players:GetPlayers()) do trackPlayer(p) end
 Players.PlayerAdded:Connect(trackPlayer)
 
--- GIẢI PHÓNG RAM: Khi người chơi khác thoát, xóa sạch kết nối của họ khỏi bộ nhớ đệm Lua
 Players.PlayerRemoving:Connect(function(player)
     if PlayerConnections[player] then
         PlayerConnections[player]:Disconnect()
@@ -104,14 +119,8 @@ local function processObjectFPS(v)
             v.CastShadow = false
         end
         
-        -- Dọn dẹp hiệu ứng trong hòm
         for _, child in ipairs(v:GetChildren()) do
-            if child:IsA("ParticleEmitter") or child:IsA("Trail") or child:IsA("Smoke") 
-            or child:IsA("Fire") or child:IsA("Beam") or child:IsA("PointLight") 
-            or child:IsA("SpotLight") or child:IsA("SurfaceLight") or child:IsA("SpecialMesh") 
-            or child:IsA("BlockMesh") then
-                child:Destroy()
-            end
+            killEffectInstance(child)
         end
     end
 end
@@ -127,32 +136,17 @@ local function handleMapPart(v)
     end
 end
 
--- TỐI ƯU PHẠM VI QUÉT: Thay vì quét toàn bộ game, chỉ quét các vật thể trong Workspace
+-- Quét môi trường hiện tại trong Workspace
 for _, v in ipairs(workspace:GetDescendants()) do 
     pcall(handleMapPart, v) 
+    pcall(killEffectInstance, v)
 end
 
--- Thay vì game.DescendantAdded, ta chỉ thu hẹp phạm vi nghe sự kiện ở workspace để tiết kiệm RAM
+-- Bộ lắng nghe sự kiện chủ động: Triệt tiêu ngay lập tức khi vệt hồng (Trail) vừa spawn ra
 workspace.DescendantAdded:Connect(function(v)
     pcall(handleMapPart, v)
+    pcall(killEffectInstance, v)
 end)
-
--- ========================================================
--- HÀM DIỆT HIỆU ỨNG TRONG WORKSPACE (RÚT GỌN PHẠM VI QUÉT)
--- ========================================================
-local function removeAllEffects(obj)
-    if isPlayerBody(obj) then return end
-    
-    if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Smoke") 
-    or obj:IsA("Fire") or obj:IsA("Beam") or obj:IsA("PointLight") 
-    or obj:IsA("SpotLight") or obj:IsA("SurfaceLight") then
-        obj:Destroy()
-    elseif obj:IsA("PostEffect") then
-        obj.Enabled = false
-    end
-end
-
-for _, v in ipairs(workspace:GetDescendants()) do pcall(removeAllEffects, v) end
 
 -- ========================================================
 -- PHẦN UI - BẢO VỆ XOAY CAMERA AN TOÀN
