@@ -1,6 +1,6 @@
 -- 1. Khóa FPS về mức 15 (Mức tối ưu để Luau dọn rác RAM tốt nhất, không bị nghẽn)
 if setfpscap then
-    setfpscap(15)
+    setfpscap(20)
 end
 
 -- 2. Ép chất lượng đồ họa Engine xuống mức thấp nhất
