@@ -43,10 +43,8 @@ end
 -- HÀM DIỆT SẠCH HIỆU ỨNG RÁC PHÁT SINH (TRAIL, PARTICLE, BEAM)
 -- ========================================================
 local function killEffectInstance(obj)
-    -- Tuyệt đối không xóa hiệu ứng bám trên người chính bạn để tránh lỗi nhân vật
     if isPlayerBody(obj) and obj:IsDescendantOf(LocalPlayer.Character) then return end
     
-    -- Xóa sổ ngay lập tức các vệt sọc màu, tia sét, khói lửa phát sinh khi auto click hoạt động
     if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Smoke") 
     or obj:IsA("Fire") or obj:IsA("Beam") or obj:IsA("PointLight") 
     or obj:IsA("SpotLight") or obj:IsA("SurfaceLight") then
@@ -57,11 +55,37 @@ local function killEffectInstance(obj)
 end
 
 -- ========================================================
--- HÀM TẮT ANIMATION CỦA PLAYER
+-- HÀM ẨN NGƯỜI CHƠI KHÁC VÀ TẮT ANIMATION TRÊN TOÀN SERVER
 -- ========================================================
-local function disableCharacterAnimations(character)
+local function hideAndDisableCharacter(character)
     if not character then return end
+    local player = Players:GetPlayerFromCharacter(character)
     
+    -- THỰC HIỆN ẨN NGƯỜI CHƠI KHÁC (Nếu không phải là chính bạn)
+    if player and player ~= LocalPlayer then
+        -- Ẩn bảng tên trên đầu chống rối mắt
+        local humanoid = character:WaitForChild("Humanoid", 5)
+        if humanoid then
+            humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+            humanoid.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
+        end
+        
+        -- Biến toàn bộ cơ thể, quần áo, cánh, phụ kiện thành tàng hình 100%
+        local function makeInvisible(obj)
+            if obj:IsA("BasePart") or obj:IsA("Decal") then
+                obj.Transparency = 1
+                obj.CanCollide = false
+            elseif obj:IsA("VisualAttachment") or obj:IsA("Attachment") then
+                -- Diệt các hiệu ứng bám trên người họ
+                for _, child in ipairs(obj:GetChildren()) do killEffectInstance(child) end
+            end
+        end
+        
+        for _, obj in ipairs(character:GetDescendants()) do makeInvisible(obj) end
+        character.DescendantAdded:Connect(makeInvisible)
+    end
+    
+    -- TẮT HOẠT ẢNH (Áp dụng cho tất cả bao gồm cả bạn để nhẹ CPU)
     local animateScript = character:WaitForChild("Animate", 3)
     if animateScript then animateScript.Enabled = false end
     
@@ -81,14 +105,14 @@ end
 
 local function trackPlayer(player)
     if player == LocalPlayer then
-        if player.Character then disableCharacterAnimations(player.Character) end
-        player.CharacterAdded:Connect(disableCharacterAnimations)
+        if player.Character then hideAndDisableCharacter(player.Character) end
+        player.CharacterAdded:Connect(hideAndDisableCharacter)
         return
     end
 
-    local conn = player.CharacterAdded:Connect(disableCharacterAnimations)
+    local conn = player.CharacterAdded:Connect(hideAndDisableCharacter)
     PlayerConnections[player] = conn
-    if player.Character then disableCharacterAnimations(player.Character) end
+    if player.Character then hideAndDisableCharacter(player.Character) end
 end
 
 for _, p in ipairs(Players:GetPlayers()) do trackPlayer(p) end
@@ -127,7 +151,7 @@ end
 
 local function handleMapPart(v)
     if not v:IsA("BasePart") then return end
-    if isPlayerBody(v) then return end
+    if isPlayerBody(v) then return end -- Không can thiệp đè lên hàm xử lý Player riêng ở trên
     
     if isBreakableOrPetMesh(v) then 
         processObjectFPS(v)
@@ -142,7 +166,6 @@ for _, v in ipairs(workspace:GetDescendants()) do
     pcall(killEffectInstance, v)
 end
 
--- Bộ lắng nghe sự kiện chủ động: Triệt tiêu ngay lập tức khi vệt hồng (Trail) vừa spawn ra
 workspace.DescendantAdded:Connect(function(v)
     pcall(handleMapPart, v)
     pcall(killEffectInstance, v)
