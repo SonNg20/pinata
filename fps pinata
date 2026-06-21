@@ -17,7 +17,6 @@ repeat task.wait() until game:IsLoaded()
 local Players = game:GetService("Players")
 local StarterGui = game:GetService("StarterGui")
 local LocalPlayer = Players.LocalPlayer
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 task.wait(5)
 
@@ -47,7 +46,7 @@ local function killEffectInstance(obj)
 end
 
 -- ========================================================
--- ĐỨNG IM VÀ TÀNG HÌNH PLAYER KHÁC (GIỮ NGUYÊN)
+-- VẪN ẨN: ĐỨNG IM VÀ TÀNG HÌNH PLAYER KHÁC ĐỂ GIẢM LAG CPU/GPU
 -- ========================================================
 local function killAnimationAndHide(character)
     if not character or character == LocalPlayer.Character then return end
@@ -81,7 +80,9 @@ for _, p in ipairs(Players:GetPlayers()) do
 end
 Players.PlayerAdded:Connect(function(p) p.CharacterAdded:Connect(killAnimationAndHide) end)
 
--- TỐI ƯU WORKSPACE (MAP)
+-- ========================================================
+-- VẪN ẨN: TỐI ƯU WORKSPACE (XOÁ TEXTURE, LÀM TÀNG HÌNH MAP)
+-- ========================================================
 local function handleMapPart(v)
     if isPlayerBody(v) then return end
     if v:IsA("BasePart") then
@@ -95,4 +96,24 @@ end
 
 for _, v in ipairs(workspace:GetDescendants()) do 
     pcall(handleMapPart, v) 
-    pcall
+    pcall(killEffectInstance, v)
+end
+workspace.DescendantAdded:Connect(function(v)
+    pcall(handleMapPart, v)
+    pcall(killEffectInstance, v)
+end)
+
+-- ========================================================
+-- KHÔNG ẨN UI: GIỮ NGUYÊN BẢN TOÀN BỘ GIAO DIỆN GAME (100%)
+-- ========================================================
+pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.All, true) end)
+
+-- Đã loại bỏ hoàn toàn các đoạn code quét ẩn PlayerGui cũ. 
+-- Màn hình 3D sẽ tối giản tối đa, nhưng giao diện UI vẫn đầy đủ để bạn thao tác.
+
+local camera = workspace.CurrentCamera
+if camera then
+    for _, child in ipairs(camera:GetChildren()) do
+        if child:IsA("Model") or child:IsA("BasePart") then child:Destroy() end
+    end
+end
