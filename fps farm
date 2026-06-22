@@ -1,56 +1,119 @@
+-- 1. Khóa FPS về mức 15 để tối ưu nhịp dọn rác RAM (Không lo nghẽn)
+if setfpscap then
+    setfpscap(15)
+end
+
+-- 2. Ép chất lượng đồ họa Engine xuống mức thấp nhất
+local settings = settings()
+if settings and settings.Rendering then
+    pcall(function()
+        settings.Rendering.QualityLevel = Enum.QualityLevel.Level01
+        settings.Rendering.MeshPartDetailLevel = Enum.MeshPartDetailLevel.DistanceBased
+    end)
+end
+
 repeat task.wait() until game:IsLoaded()
-wait(15)
-for _,v in next, workspace:GetDescendants() do
-    pcall(function()
-        if v:IsA("BasePart") then
-            v.Transparency = 1
-        end
-    end)
-end
 
-for _,v in next, getnilinstances() do
-    pcall(function()
-        if v:IsA("BasePart") then
-            v.Transparency = 1
-        end
+local Players = game:GetService("Players")
+local StarterGui = game:GetService("StarterGui")
+local LocalPlayer = Players.LocalPlayer
 
-        for _,v1 in next, v:GetDescendants() do
-            if v1:IsA("BasePart") then
-                v1.Transparency = 1
-            end
-        end
-    end)
-end
+task.wait(5)
 
-workspace.DescendantAdded:Connect(function(v)
-    pcall(function()
-        if v:IsA("BasePart") then
-            v.Transparency = 1
-        end
-    end)
+-- Luồng dọn rác giải phóng RAM
+task.spawn(function()
+    while task.wait(15) do
+        pcall(function()
+            gcinfo() 
+            collectgarbage("collect")
+        end)
+    end
 end)
-local function removeEffects(obj)
-    if obj:IsA("ParticleEmitter")
-    or obj:IsA("Trail")
-    or obj:IsA("Smoke")
-    or obj:IsA("Fire")
-    or obj:IsA("Beam") then
-        obj:Destroy()
-    end
 
-    if obj:IsA("PointLight")
-    or obj:IsA("SpotLight")
-    or obj:IsA("SurfaceLight") then
-        obj:Destroy()
-    end
+local function isPlayerBody(v)
+    return v:IsDescendantOf(LocalPlayer.Character) or Players:GetPlayerFromCharacter(v:FindFirstAncestorOfClass("Model")) ~= nil
+end
 
-    if obj:IsA("PostEffect") then
+local function killEffectInstance(obj)
+    if isPlayerBody(obj) then return end
+    if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Smoke") 
+    or obj:IsA("Fire") or obj:IsA("Beam") or obj:IsA("PointLight") 
+    or obj:IsA("SpotLight") or obj:IsA("SurfaceLight") then
+        obj:Destroy()
+    elseif obj:IsA("PostEffect") then
         obj.Enabled = false
     end
 end
 
-for _, v in ipairs(game:GetDescendants()) do
-    removeEffects(v)
+-- ========================================================
+-- VẪN ẨN: ĐỨNG IM VÀ TÀNG HÌNH PLAYER KHÁC ĐỂ GIẢM LAG CPU/GPU
+-- ========================================================
+local function killAnimationAndHide(character)
+    if not character or character == LocalPlayer.Character then return end
+    
+    local humanoid = character:WaitForChild("Humanoid", 5)
+    if humanoid then
+        humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+        humanoid.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
+        
+        local animator = humanoid:FindFirstChildOfClass("Animator")
+        if animator then animator:Destroy() end
+        
+        local blindAnimator = Instance.new("Animator")
+        blindAnimator.Parent = humanoid
+    end
+    
+    local animateScript = character:WaitForChild("Animate", 3)
+    if animateScript then animateScript.Enabled = false end
+    
+    for _, obj in ipairs(character:GetDescendants()) do
+        if obj:IsA("BasePart") or obj:IsA("Decal") then
+            obj.Transparency = 1
+            obj.CanCollide = false
+        end
+    end
 end
 
-game.DescendantAdded:Connect(removeEffects)
+for _, p in ipairs(Players:GetPlayers()) do
+    if p ~= LocalPlayer and p.Character then killAnimationAndHide(p.Character) end
+    p.CharacterAdded:Connect(killAnimationAndHide)
+end
+Players.PlayerAdded:Connect(function(p) p.CharacterAdded:Connect(killAnimationAndHide) end)
+
+-- ========================================================
+-- VẪN ẨN: TỐI ƯU WORKSPACE (XOÁ TEXTURE, LÀM TÀNG HÌNH MAP)
+-- ========================================================
+local function handleMapPart(v)
+    if isPlayerBody(v) then return end
+    if v:IsA("BasePart") then
+        v.Transparency = 1 
+        v.CastShadow = false
+        if v:IsA("MeshPart") then v.TextureID = "" end
+    elseif v:IsA("Texture") or v:IsA("Decal") or v:IsA("SpecialMesh") then
+        v:Destroy() 
+    end
+end
+
+for _, v in ipairs(workspace:GetDescendants()) do 
+    pcall(handleMapPart, v) 
+    pcall(killEffectInstance, v)
+end
+workspace.DescendantAdded:Connect(function(v)
+    pcall(handleMapPart, v)
+    pcall(killEffectInstance, v)
+end)
+
+-- ========================================================
+-- KHÔNG ẨN UI: GIỮ NGUYÊN BẢN TOÀN BỘ GIAO DIỆN GAME (100%)
+-- ========================================================
+pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.All, true) end)
+
+-- Đã loại bỏ hoàn toàn các đoạn code quét ẩn PlayerGui cũ. 
+-- Màn hình 3D sẽ tối giản tối đa, nhưng giao diện UI vẫn đầy đủ để bạn thao tác.
+
+local camera = workspace.CurrentCamera
+if camera then
+    for _, child in ipairs(camera:GetChildren()) do
+        if child:IsA("Model") or child:IsA("BasePart") then child:Destroy() end
+    end
+end
