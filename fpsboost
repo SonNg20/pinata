@@ -1,9 +1,8 @@
--- 1. Khóa FPS về mức 15
+
 if setfpscap then
     setfpscap(15)
 end
 
--- 2. Ép chất lượng đồ họa Engine xuống mức thấp nhất
 local settings = settings()
 if settings and settings.Rendering then
     pcall(function()
@@ -21,9 +20,6 @@ local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 task.wait(5)
 
--- ========================================================
--- LẤY FOLDER BACKROOMS
--- ========================================================
 local backroomsFolder = workspace:FindFirstChild("__THINGS")
 if backroomsFolder then
     backroomsFolder = backroomsFolder:FindFirstChild("__INSTANCE_CONTAINER")
@@ -38,9 +34,6 @@ if backroomsFolder then
     end
 end
 
--- ========================================================
--- CẤU HÌNH ĐIỀU KIỆN LỌC
--- ========================================================
 local function isProtected(v)
     -- Không đụng vào bất kỳ Script/ModuleScript/LocalScript nào
     if v:IsA("LuaSourceContainer") then return true end
@@ -48,7 +41,6 @@ local function isProtected(v)
     if v:IsA("Script") then return true end
     if v:IsA("LocalScript") then return true end
     
-    -- Bảo vệ toàn bộ cây thư mục của Backrooms client
     local parent = v.Parent
     while parent do
         if parent.Name == "ClientModule" then return true end
@@ -78,56 +70,43 @@ local function isInBackrooms(v)
     return v:IsDescendantOf(backroomsFolder)
 end
 
--- ========================================================
--- ẨN PHÒNG TRONG BACKROOMS
--- ========================================================
 local function hideBackrooms(v)
     if not isInBackrooms(v) then return end
     if isProtected(v) then return end
     
-    -- Ẩn BasePart
     if v:IsA("BasePart") then
         v.Transparency = 1
         v.CastShadow = false
         if v:IsA("MeshPart") then v.TextureID = "" end
     end
     
-    -- Ẩn Texture/Decal
     if v:IsA("Decal") or v:IsA("Texture") then
         v.Transparency = 1
     end
     
-    -- Tắt Light (chỉ khi không phải con của ClientModule)
     if v:IsA("Light") or v:IsA("PointLight") or v:IsA("SpotLight") or v:IsA("SurfaceLight") then
         v.Enabled = false
     end
     
-    -- Tắt Effect
     if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Smoke") 
     or v:IsA("Fire") or v:IsA("Beam") or v:IsA("Sparkles") then
         v.Enabled = false
     end
     
-    -- Tắt Billboard
     if v:IsA("BillboardGui") then
         v.Enabled = false
     end
     
-    -- Tắt Sound
     if v:IsA("Sound") then
         v.Volume = 0
     end
 end
 
--- ========================================================
--- ẨN MAP BÊN NGOÀI BACKROOMS
--- ========================================================
 local function hideOutsideBackrooms(v)
     if isPlayerBody(v) then return end
     if isProtected(v) then return end
     if isInBackrooms(v) then return end
     
-    -- Breakable: xám
     if isBreakable(v) then
         if v:IsA("BasePart") then
             v.Color = Color3.fromRGB(128, 128, 128)
@@ -137,56 +116,46 @@ local function hideOutsideBackrooms(v)
         end
         return
     end
-    
-    -- Map/Pet: ẩn, giữ CanCollide
+
     if v:IsA("BasePart") then
         v.Transparency = 1
         v.CastShadow = false
         if v:IsA("MeshPart") then v.TextureID = "" end
         return
     end
-    
-    -- Texture/Decal: ẩn
+
     if v:IsA("Decal") or v:IsA("Texture") then
         v.Transparency = 1
         return
     end
-    
-    -- Effect: tắt
+
     if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Smoke") 
     or v:IsA("Fire") or v:IsA("Beam") or v:IsA("Sparkles") then
         v.Enabled = false
         return
     end
-    
-    -- Light: tắt
+
     if v:IsA("Light") or v:IsA("PointLight") or v:IsA("SpotLight") or v:IsA("SurfaceLight") then
         v.Enabled = false
         return
     end
-    
-    -- Billboard: tắt
+
     if v:IsA("BillboardGui") or v:IsA("Highlight") or v:IsA("SelectionBox") then
         v.Enabled = false
         return
     end
-    
-    -- Sound: tắt
+
     if v:IsA("Sound") then
         v.Volume = 0
         return
     end
-    
-    -- PostEffect: tắt
+
     if v:IsA("PostEffect") then
         v.Enabled = false
         return
     end
 end
 
--- ========================================================
--- XỬ LÝ TẤT CẢ OBJECT
--- ========================================================
 local function processObject(v)
     if isPlayerBody(v) then return end
     if isProtected(v) then return end
@@ -198,23 +167,18 @@ local function processObject(v)
     end
 end
 
--- Quét lần đầu (bỏ qua object được bảo vệ)
 for _, v in ipairs(workspace:GetDescendants()) do 
     if not isProtected(v) then
         pcall(processObject, v)
     end
 end
 
--- Listener (bỏ qua object được bảo vệ)
 workspace.DescendantAdded:Connect(function(v)
     if not isProtected(v) then
         pcall(processObject, v)
     end
 end)
 
--- ========================================================
--- ẨN NGƯỜI CHƠI KHÁC
--- ========================================================
 local function hideAndDisableCharacter(character)
     if not character or character == LocalPlayer.Character then return end
     
@@ -249,9 +213,6 @@ Players.PlayerAdded:Connect(function(p)
     p.CharacterAdded:Connect(hideAndDisableCharacter)
 end)
 
--- ========================================================
--- PHẦN UI
--- ========================================================
 pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.All, false) end)
 
 local whitelistGUIs = {
@@ -286,9 +247,6 @@ workspace.DescendantAdded:Connect(function(v)
     end
 end)
 
--- ========================================================
--- DỌN RÁC RAM
--- ========================================================
 task.spawn(function()
     while task.wait(15) do
         pcall(function()
@@ -297,9 +255,6 @@ task.spawn(function()
     end
 end)
 
--- ========================================================
--- Tối ưu Camera
--- ========================================================
 local camera = workspace.CurrentCamera
 if camera then
     for _, child in ipairs(camera:GetChildren()) do
