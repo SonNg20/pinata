@@ -22,26 +22,29 @@ local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 task.wait(5)
 
 -- ========================================================
--- TẠO PLATFORM DƯỚI CHÂN PLAYER
+-- TẠO PLATFORM DƯỚI CHÂN PLAYER (ĐẢM BẢO CÓ)
 -- ========================================================
 local platform = Instance.new("Part")
 platform.Name = "_PlayerPlatform"
-platform.Size = Vector3.new(100, 2, 100)
+platform.Size = Vector3.new(500, 5, 500)
 platform.Anchored = true
 platform.CanCollide = true
 platform.Transparency = 1
 platform.Material = Enum.Material.SmoothPlastic
-platform.Position = Vector3.new(0, 2009, 0)
+platform.Color = Color3.fromRGB(255, 0, 0)
+platform.Position = Vector3.new(0, 2000, 0)
 platform.Parent = workspace
+platform:SetAttribute("Protected", true)
 
+-- Cập nhật platform theo player - loop riêng
 task.spawn(function()
-    while task.wait(0.2) do
+    while task.wait(0.1) do
         pcall(function()
             local char = LocalPlayer.Character
             if char then
                 local hrp = char:FindFirstChild("HumanoidRootPart")
-                if hrp then
-                    platform.Position = Vector3.new(hrp.Position.X, hrp.Position.Y - 4, hrp.Position.Z)
+                if hrp and platform and platform.Parent then
+                    platform.Position = Vector3.new(hrp.Position.X, hrp.Position.Y - 5, hrp.Position.Z)
                 end
             end
         end)
@@ -52,18 +55,17 @@ end)
 -- CẤU HÌNH ĐIỀU KIỆN LỌC
 -- ========================================================
 local function isProtected(obj)
-    -- Bảo vệ Backrooms ClientModule và các object liên quan
+    if obj:GetAttribute("Protected") then return true end
+    if obj.Name == "_PlayerPlatform" then return true end
     if obj.Name == "ClientModule" then return true end
     if obj:IsA("ModuleScript") then return true end
     if obj:IsA("Script") then return true end
     if obj:IsA("LocalScript") then return true end
     
-    -- Bảo vệ Backrooms folder
     local parent = obj.Parent
     while parent do
-        if parent.Name == "Backrooms" or parent.Name == "ClientModule" then
-            return true
-        end
+        if parent.Name == "Backrooms" or parent.Name == "ClientModule" then return true end
+        if parent:GetAttribute("Protected") then return true end
         parent = parent.Parent
     end
     
@@ -72,7 +74,7 @@ end
 
 local function isPlayerBody(v)
     if not LocalPlayer.Character then return false end
-    return v:IsDescendantOf(LocalPlayer.Character) or Players:GetPlayerFromCharacter(v:FindFirstAncestorOfClass("Model")) ~= nil
+    return v:IsDescendantOf(LocalPlayer.Character)
 end
 
 local function isBreakable(v)
@@ -81,7 +83,6 @@ local function isBreakable(v)
     return false
 end
 
--- Diệt hiệu ứng (chừa Backrooms)
 local function killEffectInstance(obj)
     if isPlayerBody(obj) then return end
     if isProtected(obj) then return end
@@ -115,8 +116,6 @@ local function hideAndDisableCharacter(character)
         if obj:IsA("BasePart") or obj:IsA("Decal") then
             obj.Transparency = 1
             obj.CanCollide = false
-        elseif obj:IsA("VisualAttachment") or obj:IsA("Attachment") then
-            for _, child in ipairs(obj:GetChildren()) do killEffectInstance(child) end
         end
     end
 end
