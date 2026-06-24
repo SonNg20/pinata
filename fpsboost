@@ -22,15 +22,69 @@ local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 task.wait(5)
 
 -- ========================================================
+-- TẠO PLATFORM DƯỚI CHÂN PLAYER
+-- ========================================================
+local platform = Instance.new("Part")
+platform.Name = "_PlayerPlatform"
+platform.Size = Vector3.new(100, 2, 100)
+platform.Anchored = true
+platform.CanCollide = true
+platform.Transparency = 1
+platform.Material = Enum.Material.SmoothPlastic
+platform.Position = Vector3.new(0, 2009, 0)
+platform.Parent = workspace
+
+task.spawn(function()
+    while task.wait(0.2) do
+        pcall(function()
+            local char = LocalPlayer.Character
+            if char then
+                local hrp = char:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    platform.Position = Vector3.new(hrp.Position.X, hrp.Position.Y - 4, hrp.Position.Z)
+                end
+            end
+        end)
+    end
+end)
+
+-- ========================================================
 -- CẤU HÌNH ĐIỀU KIỆN LỌC
 -- ========================================================
+local function isProtected(obj)
+    -- Bảo vệ Backrooms ClientModule và các object liên quan
+    if obj.Name == "ClientModule" then return true end
+    if obj:IsA("ModuleScript") then return true end
+    if obj:IsA("Script") then return true end
+    if obj:IsA("LocalScript") then return true end
+    
+    -- Bảo vệ Backrooms folder
+    local parent = obj.Parent
+    while parent do
+        if parent.Name == "Backrooms" or parent.Name == "ClientModule" then
+            return true
+        end
+        parent = parent.Parent
+    end
+    
+    return false
+end
+
 local function isPlayerBody(v)
+    if not LocalPlayer.Character then return false end
     return v:IsDescendantOf(LocalPlayer.Character) or Players:GetPlayerFromCharacter(v:FindFirstAncestorOfClass("Model")) ~= nil
 end
 
--- Diệt hiệu ứng
+local function isBreakable(v)
+    if v:IsA("Model") and v:GetAttribute("BreakableUID") then return true end
+    if v.Parent and v.Parent:IsA("Model") and v.Parent:GetAttribute("BreakableUID") then return true end
+    return false
+end
+
+-- Diệt hiệu ứng (chừa Backrooms)
 local function killEffectInstance(obj)
     if isPlayerBody(obj) then return end
+    if isProtected(obj) then return end
     
     if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Smoke") 
     or obj:IsA("Fire") or obj:IsA("Beam") or obj:IsA("PointLight") 
@@ -80,7 +134,20 @@ end)
 -- ========================================================
 local function handleMapPart(v)
     if isPlayerBody(v) then return end
+    if isProtected(v) then return end
     
+    -- Breakable: đơn điệu màu xám
+    if isBreakable(v) then
+        if v:IsA("BasePart") then
+            v.Color = Color3.fromRGB(128, 128, 128)
+            v.Material = Enum.Material.SmoothPlastic
+            v.CastShadow = false
+            if v:IsA("MeshPart") then v.TextureID = "" end
+        end
+        return
+    end
+    
+    -- Map + Pet: ẩn
     if v:IsA("BasePart") then
         v.Transparency = 1
         v.CastShadow = false
@@ -92,12 +159,16 @@ local function handleMapPart(v)
 end
 
 for _, v in ipairs(workspace:GetDescendants()) do 
-    pcall(handleMapPart, v) 
-    pcall(killEffectInstance, v)
+    if not isProtected(v) then
+        pcall(handleMapPart, v) 
+        pcall(killEffectInstance, v)
+    end
 end
 workspace.DescendantAdded:Connect(function(v)
-    pcall(handleMapPart, v)
-    pcall(killEffectInstance, v)
+    if not isProtected(v) then
+        pcall(handleMapPart, v)
+        pcall(killEffectInstance, v)
+    end
 end)
 
 -- ========================================================
@@ -127,16 +198,22 @@ local function applyInvisibility(v)
     end
 end
 
-for _, v in ipairs(PlayerGui:GetDescendants()) do pcall(applyInvisibility, v) end
+for _, v in ipairs(PlayerGui:GetDescendants()) do 
+    if not isProtected(v) then
+        pcall(applyInvisibility, v)
+    end
+end
 
 workspace.DescendantAdded:Connect(function(v)
     if v:IsA("ScreenGui") or v:IsA("BillboardGui") or v:IsA("SurfaceGui") or v:IsA("GuiObject") then
-        pcall(applyInvisibility, v)
+        if not isProtected(v) then
+            pcall(applyInvisibility, v)
+        end
     end
 end)
 
 -- ========================================================
--- DỌN RÁC RAM (1 LOOP DUY NHẤT)
+-- DỌN RÁC RAM
 -- ========================================================
 task.spawn(function()
     while task.wait(15) do
