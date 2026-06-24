@@ -50,8 +50,20 @@ local function isBreakable(v)
     return false
 end
 
+-- Kiểm tra có phải model trong Backrooms không
+local function isBackroomsModel(v)
+    local parent = v.Parent
+    while parent do
+        if parent.Name == "GeneratedBackrooms" or parent.Name == "Backrooms" then
+            return true
+        end
+        parent = parent.Parent
+    end
+    return false
+end
+
 -- ========================================================
--- ẨN MAP (CHỈ ẨN TRANSPARENCY, KHÔNG ĐỤNG CANCOLLIDE CỦA MAP)
+-- ẨN MAP + BACKROOMS MODEL THÀNH XÁM + TẮT LIGHT
 -- ========================================================
 local function hideMap(v)
     if isPlayerBody(v) then return end
@@ -68,12 +80,25 @@ local function hideMap(v)
         return
     end
     
+    -- Model trong Backrooms: chuyển thành màu xám
+    if isBackroomsModel(v) then
+        if v:IsA("BasePart") then
+            v.Color = Color3.fromRGB(100, 100, 100)
+            v.Material = Enum.Material.SmoothPlastic
+            v.CastShadow = false
+            if v:IsA("MeshPart") then v.TextureID = "" end
+        end
+        if v:IsA("Decal") or v:IsA("Texture") then
+            v.Transparency = 1
+        end
+        return
+    end
+    
     -- Map/Pet: CHỈ ẩn Transparency, GIỮ NGUYÊN CanCollide
     if v:IsA("BasePart") then
         v.Transparency = 1
         v.CastShadow = false
         if v:IsA("MeshPart") then v.TextureID = "" end
-        -- KHÔNG ĐỤNG CanCollide - để map vẫn solid
         return
     end
     
@@ -83,15 +108,21 @@ local function hideMap(v)
         return
     end
     
-    -- Effect: tắt nhưng không destroy
-    if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Smoke") 
-    or v:IsA("Fire") or v:IsA("Beam") or v:IsA("Sparkles") then
-        v.Enabled = false
+    -- Light: tắt hoặc giảm
+    if v:IsA("Light") or v:IsA("PointLight") or v:IsA("SpotLight") or v:IsA("SurfaceLight") then
+        if isBackroomsModel(v) then
+            -- Trong Backrooms: giảm brightness
+            v.Brightness = 0.1
+        else
+            -- Ngoài Backrooms: tắt hẳn
+            v.Enabled = false
+        end
         return
     end
     
-    -- Light: tắt
-    if v:IsA("Light") or v:IsA("PointLight") or v:IsA("SpotLight") or v:IsA("SurfaceLight") then
+    -- Effect: tắt
+    if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Smoke") 
+    or v:IsA("Fire") or v:IsA("Beam") or v:IsA("Sparkles") then
         v.Enabled = false
         return
     end
