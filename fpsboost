@@ -41,15 +41,21 @@ end
 -- ========================================================
 -- CẤU HÌNH ĐIỀU KIỆN LỌC
 -- ========================================================
-local function isProtected(obj)
-    if obj.Name == "ClientModule" then return true end
-    if obj:IsA("ModuleScript") then return true end
-    if obj:IsA("Script") then return true end
-    if obj:IsA("LocalScript") then return true end
+local function isProtected(v)
+    -- Không đụng vào bất kỳ Script/ModuleScript/LocalScript nào
+    if v:IsA("LuaSourceContainer") then return true end
+    if v:IsA("ModuleScript") then return true end
+    if v:IsA("Script") then return true end
+    if v:IsA("LocalScript") then return true end
     
-    local parent = obj.Parent
+    -- Bảo vệ toàn bộ cây thư mục của Backrooms client
+    local parent = v.Parent
     while parent do
-        if parent.Name == "Backrooms" or parent.Name == "ClientModule" then return true end
+        if parent.Name == "ClientModule" then return true end
+        if parent:IsA("LuaSourceContainer") then return true end
+        if parent:IsA("ModuleScript") then return true end
+        if parent:IsA("Script") then return true end
+        if parent:IsA("LocalScript") then return true end
         parent = parent.Parent
     end
     
@@ -67,49 +73,47 @@ local function isBreakable(v)
     return false
 end
 
--- Kiểm tra có nằm trong GeneratedBackrooms không
 local function isInBackrooms(v)
     if not backroomsFolder then return false end
     return v:IsDescendantOf(backroomsFolder)
 end
 
 -- ========================================================
--- HÀM XỬ LÝ MÀU ĐEN CHO BACKROOMS
+-- ẨN PHÒNG TRONG BACKROOMS
 -- ========================================================
-local function makeBlackInBackrooms(v)
+local function hideBackrooms(v)
     if not isInBackrooms(v) then return end
+    if isProtected(v) then return end
     
-    -- Tất cả BasePart trong Backrooms -> đen
+    -- Ẩn BasePart
     if v:IsA("BasePart") then
-        v.Color = Color3.fromRGB(0, 0, 0)
-        v.Material = Enum.Material.SmoothPlastic
+        v.Transparency = 1
         v.CastShadow = false
         if v:IsA("MeshPart") then v.TextureID = "" end
     end
     
-    -- Texture/Decal -> đen
+    -- Ẩn Texture/Decal
     if v:IsA("Decal") or v:IsA("Texture") then
-        v.Color3 = Color3.fromRGB(0, 0, 0)
-        v.Transparency = 0
+        v.Transparency = 1
     end
     
-    -- Light -> tắt
+    -- Tắt Light (chỉ khi không phải con của ClientModule)
     if v:IsA("Light") or v:IsA("PointLight") or v:IsA("SpotLight") or v:IsA("SurfaceLight") then
         v.Enabled = false
     end
     
-    -- Particle/Effect -> tắt
+    -- Tắt Effect
     if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Smoke") 
     or v:IsA("Fire") or v:IsA("Beam") or v:IsA("Sparkles") then
         v.Enabled = false
     end
     
-    -- Billboard -> tắt
+    -- Tắt Billboard
     if v:IsA("BillboardGui") then
         v.Enabled = false
     end
     
-    -- Sound -> tắt
+    -- Tắt Sound
     if v:IsA("Sound") then
         v.Volume = 0
     end
@@ -188,20 +192,24 @@ local function processObject(v)
     if isProtected(v) then return end
     
     if isInBackrooms(v) then
-        makeBlackInBackrooms(v)
+        hideBackrooms(v)
     else
         hideOutsideBackrooms(v)
     end
 end
 
--- Quét lần đầu
+-- Quét lần đầu (bỏ qua object được bảo vệ)
 for _, v in ipairs(workspace:GetDescendants()) do 
-    pcall(processObject, v)
+    if not isProtected(v) then
+        pcall(processObject, v)
+    end
 end
 
--- Listener
+-- Listener (bỏ qua object được bảo vệ)
 workspace.DescendantAdded:Connect(function(v)
-    pcall(processObject, v)
+    if not isProtected(v) then
+        pcall(processObject, v)
+    end
 end)
 
 -- ========================================================
