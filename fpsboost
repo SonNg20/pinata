@@ -22,6 +22,23 @@ local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 task.wait(5)
 
 -- ========================================================
+-- LẤY FOLDER BACKROOMS
+-- ========================================================
+local backroomsFolder = workspace:FindFirstChild("__THINGS")
+if backroomsFolder then
+    backroomsFolder = backroomsFolder:FindFirstChild("__INSTANCE_CONTAINER")
+    if backroomsFolder then
+        backroomsFolder = backroomsFolder:FindFirstChild("Active")
+        if backroomsFolder then
+            backroomsFolder = backroomsFolder:FindFirstChild("Backrooms")
+            if backroomsFolder then
+                backroomsFolder = backroomsFolder:FindFirstChild("GeneratedBackrooms")
+            end
+        end
+    end
+end
+
+-- ========================================================
 -- CẤU HÌNH ĐIỀU KIỆN LỌC
 -- ========================================================
 local function isProtected(obj)
@@ -50,26 +67,63 @@ local function isBreakable(v)
     return false
 end
 
--- Kiểm tra có phải model trong Backrooms không
-local function isBackroomsModel(v)
-    local parent = v.Parent
-    while parent do
-        if parent.Name == "GeneratedBackrooms" or parent.Name == "Backrooms" then
-            return true
-        end
-        parent = parent.Parent
-    end
-    return false
+-- Kiểm tra có nằm trong GeneratedBackrooms không
+local function isInBackrooms(v)
+    if not backroomsFolder then return false end
+    return v:IsDescendantOf(backroomsFolder)
 end
 
 -- ========================================================
--- ẨN MAP + BACKROOMS MODEL THÀNH XÁM + TẮT LIGHT
+-- HÀM XỬ LÝ MÀU ĐEN CHO BACKROOMS
 -- ========================================================
-local function hideMap(v)
+local function makeBlackInBackrooms(v)
+    if not isInBackrooms(v) then return end
+    
+    -- Tất cả BasePart trong Backrooms -> đen
+    if v:IsA("BasePart") then
+        v.Color = Color3.fromRGB(0, 0, 0)
+        v.Material = Enum.Material.SmoothPlastic
+        v.CastShadow = false
+        if v:IsA("MeshPart") then v.TextureID = "" end
+    end
+    
+    -- Texture/Decal -> đen
+    if v:IsA("Decal") or v:IsA("Texture") then
+        v.Color3 = Color3.fromRGB(0, 0, 0)
+        v.Transparency = 0
+    end
+    
+    -- Light -> tắt
+    if v:IsA("Light") or v:IsA("PointLight") or v:IsA("SpotLight") or v:IsA("SurfaceLight") then
+        v.Enabled = false
+    end
+    
+    -- Particle/Effect -> tắt
+    if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Smoke") 
+    or v:IsA("Fire") or v:IsA("Beam") or v:IsA("Sparkles") then
+        v.Enabled = false
+    end
+    
+    -- Billboard -> tắt
+    if v:IsA("BillboardGui") then
+        v.Enabled = false
+    end
+    
+    -- Sound -> tắt
+    if v:IsA("Sound") then
+        v.Volume = 0
+    end
+end
+
+-- ========================================================
+-- ẨN MAP BÊN NGOÀI BACKROOMS
+-- ========================================================
+local function hideOutsideBackrooms(v)
     if isPlayerBody(v) then return end
     if isProtected(v) then return end
+    if isInBackrooms(v) then return end
     
-    -- Breakable: đơn điệu màu xám, GIỮ CANCOLLIDE
+    -- Breakable: xám
     if isBreakable(v) then
         if v:IsA("BasePart") then
             v.Color = Color3.fromRGB(128, 128, 128)
@@ -80,21 +134,7 @@ local function hideMap(v)
         return
     end
     
-    -- Model trong Backrooms: chuyển thành màu xám
-    if isBackroomsModel(v) then
-        if v:IsA("BasePart") then
-            v.Color = Color3.fromRGB(100, 100, 100)
-            v.Material = Enum.Material.SmoothPlastic
-            v.CastShadow = false
-            if v:IsA("MeshPart") then v.TextureID = "" end
-        end
-        if v:IsA("Decal") or v:IsA("Texture") then
-            v.Transparency = 1
-        end
-        return
-    end
-    
-    -- Map/Pet: CHỈ ẩn Transparency, GIỮ NGUYÊN CanCollide
+    -- Map/Pet: ẩn, giữ CanCollide
     if v:IsA("BasePart") then
         v.Transparency = 1
         v.CastShadow = false
@@ -102,21 +142,9 @@ local function hideMap(v)
         return
     end
     
-    -- Texture/Decal: chỉ ẩn
+    -- Texture/Decal: ẩn
     if v:IsA("Decal") or v:IsA("Texture") then
         v.Transparency = 1
-        return
-    end
-    
-    -- Light: tắt hoặc giảm
-    if v:IsA("Light") or v:IsA("PointLight") or v:IsA("SpotLight") or v:IsA("SurfaceLight") then
-        if isBackroomsModel(v) then
-            -- Trong Backrooms: giảm brightness
-            v.Brightness = 0.1
-        else
-            -- Ngoài Backrooms: tắt hẳn
-            v.Enabled = false
-        end
         return
     end
     
@@ -127,13 +155,19 @@ local function hideMap(v)
         return
     end
     
+    -- Light: tắt
+    if v:IsA("Light") or v:IsA("PointLight") or v:IsA("SpotLight") or v:IsA("SurfaceLight") then
+        v.Enabled = false
+        return
+    end
+    
     -- Billboard: tắt
     if v:IsA("BillboardGui") or v:IsA("Highlight") or v:IsA("SelectionBox") then
         v.Enabled = false
         return
     end
     
-    -- Sound: tắt tiếng
+    -- Sound: tắt
     if v:IsA("Sound") then
         v.Volume = 0
         return
@@ -146,14 +180,28 @@ local function hideMap(v)
     end
 end
 
+-- ========================================================
+-- XỬ LÝ TẤT CẢ OBJECT
+-- ========================================================
+local function processObject(v)
+    if isPlayerBody(v) then return end
+    if isProtected(v) then return end
+    
+    if isInBackrooms(v) then
+        makeBlackInBackrooms(v)
+    else
+        hideOutsideBackrooms(v)
+    end
+end
+
 -- Quét lần đầu
 for _, v in ipairs(workspace:GetDescendants()) do 
-    pcall(hideMap, v)
+    pcall(processObject, v)
 end
 
 -- Listener
 workspace.DescendantAdded:Connect(function(v)
-    pcall(hideMap, v)
+    pcall(processObject, v)
 end)
 
 -- ========================================================
