@@ -1,4 +1,4 @@
--- 1. Khóa FPS về mức 15 để tối ưu nhịp dọn rác RAM (Không lo nghẽn)
+-- 1. Khóa FPS về mức 15
 if setfpscap then
     setfpscap(15)
 end
@@ -15,105 +15,195 @@ end
 repeat task.wait() until game:IsLoaded()
 
 local Players = game:GetService("Players")
-local StarterGui = game:GetService("StarterGui")
 local LocalPlayer = Players.LocalPlayer
 
 task.wait(5)
 
--- Luồng dọn rác giải phóng RAM
-task.spawn(function()
-    while task.wait(15) do
-        pcall(function()
-            gcinfo() 
-            collectgarbage("collect")
-        end)
+-- ========================================================
+-- CẤU HÌNH ĐIỀU KIỆN LỌC
+-- ========================================================
+local function isProtected(obj)
+    if obj.Name == "ClientModule" then return true end
+    if obj:IsA("ModuleScript") then return true end
+    if obj:IsA("Script") then return true end
+    if obj:IsA("LocalScript") then return true end
+    
+    local parent = obj.Parent
+    while parent do
+        if parent.Name == "Backrooms" or parent.Name == "ClientModule" then return true end
+        parent = parent.Parent
     end
-end)
+    
+    return false
+end
 
 local function isPlayerBody(v)
-    return v:IsDescendantOf(LocalPlayer.Character) or Players:GetPlayerFromCharacter(v:FindFirstAncestorOfClass("Model")) ~= nil
+    if not LocalPlayer.Character then return false end
+    return v:IsDescendantOf(LocalPlayer.Character)
 end
 
-local function killEffectInstance(obj)
-    if isPlayerBody(obj) then return end
-    if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Smoke") 
-    or obj:IsA("Fire") or obj:IsA("Beam") or obj:IsA("PointLight") 
-    or obj:IsA("SpotLight") or obj:IsA("SurfaceLight") then
-        obj:Destroy()
-    elseif obj:IsA("PostEffect") then
-        obj.Enabled = false
+local function isBreakable(v)
+    if v:IsA("Model") and v:GetAttribute("BreakableUID") then return true end
+    if v.Parent and v.Parent:IsA("Model") and v.Parent:GetAttribute("BreakableUID") then return true end
+    return false
+end
+
+-- ========================================================
+-- ẨN MAP (CHỈ ẨN - KHÔNG DESTROY)
+-- ========================================================
+local function hideMap(v)
+    if isPlayerBody(v) then return end
+    if isProtected(v) then return end
+    
+    -- Breakable: đơn điệu màu xám, GIỮ CANCOLLIDE
+    if isBreakable(v) then
+        if v:IsA("BasePart") then
+            v.Color = Color3.fromRGB(128, 128, 128)
+            v.Material = Enum.Material.SmoothPlastic
+            v.CastShadow = false
+            if v:IsA("MeshPart") then v.TextureID = "" end
+        end
+        return
+    end
+    
+    -- Map/Pet: CHỈ ẩn Transparency, GIỮ NGUYÊN CanCollide
+    if v:IsA("BasePart") then
+        v.Transparency = 1
+        v.CastShadow = false
+        if v:IsA("MeshPart") then v.TextureID = "" end
+        return
+    end
+    
+    -- Texture/Decal: chỉ ẩn
+    if v:IsA("Decal") or v:IsA("Texture") then
+        v.Transparency = 1
+        return
+    end
+    
+    -- Effect: tắt nhưng không destroy
+    if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Smoke") 
+    or v:IsA("Fire") or v:IsA("Beam") or v:IsA("Sparkles") then
+        v.Enabled = false
+        return
+    end
+    
+    -- Light: tắt
+    if v:IsA("Light") or v:IsA("PointLight") or v:IsA("SpotLight") or v:IsA("SurfaceLight") then
+        v.Enabled = false
+        return
+    end
+    
+    -- Billboard: tắt
+    if v:IsA("BillboardGui") or v:IsA("Highlight") or v:IsA("SelectionBox") then
+        v.Enabled = false
+        return
+    end
+    
+    -- Sound: tắt tiếng
+    if v:IsA("Sound") then
+        v.Volume = 0
+        return
+    end
+    
+    -- PostEffect: tắt
+    if v:IsA("PostEffect") then
+        v.Enabled = false
+        return
     end
 end
 
+-- Quét lần đầu
+for _, v in ipairs(workspace:GetDescendants()) do 
+    pcall(hideMap, v)
+end
+
+-- Listener
+workspace.DescendantAdded:Connect(function(v)
+    pcall(hideMap, v)
+end)
+
 -- ========================================================
--- VẪN ẨN: ĐỨNG IM VÀ TÀNG HÌNH PLAYER KHÁC ĐỂ GIẢM LAG CPU/GPU
+-- ẨN NGƯỜI CHƠI KHÁC
 -- ========================================================
-local function killAnimationAndHide(character)
+local function hideAndDisableCharacter(character)
     if not character or character == LocalPlayer.Character then return end
     
-    local humanoid = character:WaitForChild("Humanoid", 5)
+    local humanoid = character:FindFirstChild("Humanoid")
     if humanoid then
         humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
         humanoid.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
         
         local animator = humanoid:FindFirstChildOfClass("Animator")
         if animator then animator:Destroy() end
-        
-        local blindAnimator = Instance.new("Animator")
-        blindAnimator.Parent = humanoid
+        Instance.new("Animator").Parent = humanoid
     end
     
-    local animateScript = character:WaitForChild("Animate", 3)
-    if animateScript then animateScript.Enabled = false end
-    
     for _, obj in ipairs(character:GetDescendants()) do
-        if obj:IsA("BasePart") or obj:IsA("Decal") then
+        if obj:IsA("BasePart") then
             obj.Transparency = 1
-            obj.CanCollide = false
+        elseif obj:IsA("Decal") then
+            obj.Transparency = 1
+        elseif obj:IsA("BillboardGui") then
+            obj.Enabled = false
+        elseif obj:IsA("ParticleEmitter") or obj:IsA("Trail") then
+            obj.Enabled = false
         end
     end
 end
 
 for _, p in ipairs(Players:GetPlayers()) do
-    if p ~= LocalPlayer and p.Character then killAnimationAndHide(p.Character) end
-    p.CharacterAdded:Connect(killAnimationAndHide)
+    if p ~= LocalPlayer and p.Character then hideAndDisableCharacter(p.Character) end
+    p.CharacterAdded:Connect(hideAndDisableCharacter)
 end
-Players.PlayerAdded:Connect(function(p) p.CharacterAdded:Connect(killAnimationAndHide) end)
-
--- ========================================================
--- VẪN ẨN: TỐI ƯU WORKSPACE (XOÁ TEXTURE, LÀM TÀNG HÌNH MAP)
--- ========================================================
-local function handleMapPart(v)
-    if isPlayerBody(v) then return end
-    if v:IsA("BasePart") then
-        v.Transparency = 1 
-        v.CastShadow = false
-        if v:IsA("MeshPart") then v.TextureID = "" end
-    elseif v:IsA("Texture") or v:IsA("Decal") or v:IsA("SpecialMesh") then
-        v:Destroy() 
-    end
-end
-
-for _, v in ipairs(workspace:GetDescendants()) do 
-    pcall(handleMapPart, v) 
-    pcall(killEffectInstance, v)
-end
-workspace.DescendantAdded:Connect(function(v)
-    pcall(handleMapPart, v)
-    pcall(killEffectInstance, v)
+Players.PlayerAdded:Connect(function(p)
+    p.CharacterAdded:Connect(hideAndDisableCharacter)
 end)
 
 -- ========================================================
--- KHÔNG ẨN UI: GIỮ NGUYÊN BẢN TOÀN BỘ GIAO DIỆN GAME (100%)
+-- TỐI ƯU LIGHTING
 -- ========================================================
-pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.All, true) end)
+pcall(function()
+    game:GetService("Lighting").GlobalShadows = false
+    game:GetService("Lighting").Technology = Enum.Technology.Compatibility
+    game:GetService("Lighting").Brightness = 0
+    game:GetService("Lighting").FogEnd = 1
+    game:GetService("Lighting").FogStart = 0
+    game:GetService("Lighting").ClockTime = 0
+    game:GetService("Lighting").OutdoorAmbient = Color3.fromRGB(0, 0, 0)
+    game:GetService("Lighting").Ambient = Color3.fromRGB(0, 0, 0)
+end)
 
--- Đã loại bỏ hoàn toàn các đoạn code quét ẩn PlayerGui cũ. 
--- Màn hình 3D sẽ tối giản tối đa, nhưng giao diện UI vẫn đầy đủ để bạn thao tác.
+-- ========================================================
+-- ẨN SKY
+-- ========================================================
+pcall(function()
+    local sky = game:GetService("Lighting"):FindFirstChildOfClass("Sky")
+    if sky then sky:Destroy() end
+    local atmosphere = game:GetService("Lighting"):FindFirstChildOfClass("Atmosphere")
+    if atmosphere then atmosphere:Destroy() end
+end)
 
+-- ========================================================
+-- DỌN RAM
+-- ========================================================
+task.spawn(function()
+    while task.wait(15) do
+        pcall(function()
+            collectgarbage("collect")
+            collectgarbage("step")
+        end)
+    end
+end)
+
+-- ========================================================
+-- Tối ưu Camera
+-- ========================================================
 local camera = workspace.CurrentCamera
 if camera then
     for _, child in ipairs(camera:GetChildren()) do
         if child:IsA("Model") or child:IsA("BasePart") then child:Destroy() end
     end
+    camera.ChildAdded:Connect(function(child)
+        if child:IsA("Model") or child:IsA("BasePart") then child:Destroy() end
+    end)
 end
