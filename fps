@@ -1,6 +1,12 @@
+-- =============================================
+--  CẤU HÌNH TỪ BÊN NGOÀI
+-- =============================================
+getgenv().FpsCap = getgenv().FpsCap or 15
+getgenv().DeleteUI = getgenv().DeleteUI or true
+getgenv().DeleteBreakable = getgenv().DeleteBreakable or true
 
 if setfpscap then
-    setfpscap(15)
+    setfpscap(getgenv().FpsCap)
 end
 
 local settings = settings()
@@ -20,22 +26,28 @@ local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 task.wait(5)
 
-local backroomsFolder = workspace:FindFirstChild("__THINGS")
-if backroomsFolder then
-    backroomsFolder = backroomsFolder:FindFirstChild("__INSTANCE_CONTAINER")
-    if backroomsFolder then
-        backroomsFolder = backroomsFolder:FindFirstChild("Active")
-        if backroomsFolder then
-            backroomsFolder = backroomsFolder:FindFirstChild("Backrooms")
-            if backroomsFolder then
-                backroomsFolder = backroomsFolder:FindFirstChild("GeneratedBackrooms")
-            end
-        end
-    end
+-- ============================
+-- BỆ ĐỠ CHỐNG RỚT (GIỮ LẠI)
+-- ============================
+local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local hrp = char:WaitForChild("HumanoidRootPart")
+
+local platform = Instance.new("Part")
+platform.Size = Vector3.new(15, 1, 15)
+platform.Anchored = true
+platform.Transparency = 1 
+platform.CanCollide = true
+platform.Parent = workspace
+
+local function safeTeleport(targetPos)
+    platform.CFrame = CFrame.new(targetPos - Vector3.new(0, 3, 0))
+    hrp.CFrame = CFrame.new(targetPos)
 end
 
+-- ============================
+-- DỌN DẸP MAP (ẨN HẾT)
+-- ============================
 local function isProtected(v)
-    -- Không đụng vào bất kỳ Script/ModuleScript/LocalScript nào
     if v:IsA("LuaSourceContainer") then return true end
     if v:IsA("ModuleScript") then return true end
     if v:IsA("Script") then return true end
@@ -65,58 +77,30 @@ local function isBreakable(v)
     return false
 end
 
-local function isInBackrooms(v)
-    if not backroomsFolder then return false end
-    return v:IsDescendantOf(backroomsFolder)
-end
-
-local function hideBackrooms(v)
-    if not isInBackrooms(v) then return end
-    if isProtected(v) then return end
-    
-    if v:IsA("BasePart") then
-        v.Transparency = 1
-        v.CastShadow = false
-        if v:IsA("MeshPart") then v.TextureID = "" end
-    end
-    
-    if v:IsA("Decal") or v:IsA("Texture") then
-        v.Transparency = 1
-    end
-    
-    if v:IsA("Light") or v:IsA("PointLight") or v:IsA("SpotLight") or v:IsA("SurfaceLight") then
-        v.Enabled = false
-    end
-    
-    if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Smoke") 
-    or v:IsA("Fire") or v:IsA("Beam") or v:IsA("Sparkles") then
-        v.Enabled = false
-    end
-    
-    if v:IsA("BillboardGui") then
-        v.Enabled = false
-    end
-    
-    if v:IsA("Sound") then
-        v.Volume = 0
-    end
-end
-
-local function hideOutsideBackrooms(v)
+local function hideOutsideObjects(v)
     if isPlayerBody(v) then return end
     if isProtected(v) then return end
-    if isInBackrooms(v) then return end
     
+    -- BREAKABLE
     if isBreakable(v) then
-        if v:IsA("BasePart") then
-            v.Color = Color3.fromRGB(128, 128, 128)
-            v.Material = Enum.Material.SmoothPlastic
-            v.CastShadow = false
-            if v:IsA("MeshPart") then v.TextureID = "" end
+        if getgenv().DeleteBreakable == true then
+            if v:IsA("BasePart") then
+                v.Transparency = 1
+                v.CastShadow = false
+                if v:IsA("MeshPart") then v.TextureID = "" end
+            end
+        else
+            if v:IsA("BasePart") then
+                v.Color = Color3.fromRGB(128, 128, 128)
+                v.Material = Enum.Material.SmoothPlastic
+                v.CastShadow = false
+                if v:IsA("MeshPart") then v.TextureID = "" end
+            end
         end
         return
     end
 
+    -- ẨN TẤT CẢ CÁC VẬT THỂ KHÁC (BAO GỒM CẢ NỀN ĐẤT)
     if v:IsA("BasePart") then
         v.Transparency = 1
         v.CastShadow = false
@@ -126,17 +110,6 @@ local function hideOutsideBackrooms(v)
 
     if v:IsA("Decal") or v:IsA("Texture") then
         v.Transparency = 1
-        return
-    end
-
-    if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Smoke") 
-    or v:IsA("Fire") or v:IsA("Beam") or v:IsA("Sparkles") then
-        v.Enabled = false
-        return
-    end
-
-    if v:IsA("Light") or v:IsA("PointLight") or v:IsA("SpotLight") or v:IsA("SurfaceLight") then
-        v.Enabled = false
         return
     end
 
@@ -149,6 +122,17 @@ local function hideOutsideBackrooms(v)
         v.Volume = 0
         return
     end
+    
+    -- XÓA MỌI HIỆU ỨNG CŨ
+    if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Smoke") or v:IsA("Fire") or v:IsA("Beam") or v:IsA("Sparkles") then
+        v.Enabled = false
+        return
+    end
+
+    if v:IsA("Light") or v:IsA("PointLight") or v:IsA("SpotLight") or v:IsA("SurfaceLight") then
+        v.Enabled = false
+        return
+    end
 
     if v:IsA("PostEffect") then
         v.Enabled = false
@@ -159,12 +143,7 @@ end
 local function processObject(v)
     if isPlayerBody(v) then return end
     if isProtected(v) then return end
-    
-    if isInBackrooms(v) then
-        hideBackrooms(v)
-    else
-        hideOutsideBackrooms(v)
-    end
+    hideOutsideObjects(v)
 end
 
 for _, v in ipairs(workspace:GetDescendants()) do 
@@ -173,12 +152,44 @@ for _, v in ipairs(workspace:GetDescendants()) do
     end
 end
 
+-- ============================
+-- BẮT CÁC HIỆU ỨNG MỚI SINH RA
+-- ============================
 workspace.DescendantAdded:Connect(function(v)
-    if not isProtected(v) then
-        pcall(processObject, v)
+    if isPlayerBody(v) then return end
+    if isProtected(v) then return end
+    
+    if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Smoke") or v:IsA("Fire") or v:IsA("Beam") or v:IsA("Sparkles") then
+        v.Enabled = false
+        return
+    end
+    if v:IsA("Light") or v:IsA("PointLight") or v:IsA("SpotLight") or v:IsA("SurfaceLight") then
+        v.Enabled = false
+        return
+    end
+    if v:IsA("PostEffect") then
+        v.Enabled = false
+        return
+    end
+    if v:IsA("BasePart") then
+        v.Transparency = 1
+        v.CastShadow = false
+        if v:IsA("MeshPart") then v.TextureID = "" end
+    end
+    if v:IsA("Decal") or v:IsA("Texture") then
+        v.Transparency = 1
+    end
+    if v:IsA("BillboardGui") or v:IsA("Highlight") or v:IsA("SelectionBox") then
+        v.Enabled = false
+    end
+    if v:IsA("Sound") then
+        v.Volume = 0
     end
 end)
 
+-- ============================
+-- ẨN NGƯỜI CHƠI KHÁC
+-- ============================
 local function hideAndDisableCharacter(character)
     if not character or character == LocalPlayer.Character then return end
     
@@ -213,40 +224,44 @@ Players.PlayerAdded:Connect(function(p)
     p.CharacterAdded:Connect(hideAndDisableCharacter)
 end)
 
-pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.All, false) end)
+-- ============================
+-- XÓA UI
+-- ============================
+if getgenv().DeleteUI == true then
+    pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.All, false) end)
 
-local whitelistGUIs = {
-    CoordinateTrackerGui = true,
-    BackroomsGridTracker = true,
-    BackroomsUiToggleGui = true,
-    SimpleAutoClickGui = true,
-    BackroomsFixUiGui = true,
-    BackroomsPureUiGui = true,
-    ScanGUI = true
-}
+    local whitelistGUIs = {
+        CoordinateTrackerGui = true,
+        SimpleAutoClickGui = true,
+        ScanGUI = true
+    }
 
-local function applyInvisibility(v)
-    if v:IsA("ScreenGui") and not whitelistGUIs[v.Name] then
-        v.Enabled = false
-    elseif v:IsA("BillboardGui") or v:IsA("SurfaceGui") then
-        v.Enabled = false
-    elseif v:IsA("GuiObject") then
-        local screenGui = v:FindFirstAncestorOfClass("ScreenGui")
-        if screenGui and whitelistGUIs[screenGui.Name] then return end
-        v.Visible = false
+    local function applyInvisibility(v)
+        if v:IsA("ScreenGui") and not whitelistGUIs[v.Name] then
+            v.Enabled = false
+        elseif v:IsA("BillboardGui") or v:IsA("SurfaceGui") then
+            v.Enabled = false
+        elseif v:IsA("GuiObject") then
+            local screenGui = v:FindFirstAncestorOfClass("ScreenGui")
+            if screenGui and whitelistGUIs[screenGui.Name] then return end
+            v.Visible = false
+        end
     end
-end
 
-for _, v in ipairs(PlayerGui:GetDescendants()) do 
-    pcall(applyInvisibility, v)
-end
-
-workspace.DescendantAdded:Connect(function(v)
-    if v:IsA("ScreenGui") or v:IsA("BillboardGui") or v:IsA("SurfaceGui") or v:IsA("GuiObject") then
+    for _, v in ipairs(PlayerGui:GetDescendants()) do 
         pcall(applyInvisibility, v)
     end
-end)
 
+    workspace.DescendantAdded:Connect(function(v)
+        if v:IsA("ScreenGui") or v:IsA("BillboardGui") or v:IsA("SurfaceGui") or v:IsA("GuiObject") then
+            pcall(applyInvisibility, v)
+        end
+    end)
+end
+
+-- ============================
+-- DỌN DẸP RAM
+-- ============================
 task.spawn(function()
     while task.wait(15) do
         pcall(function()
@@ -255,6 +270,9 @@ task.spawn(function()
     end
 end)
 
+-- ============================
+-- DỌN DẸP CAMERA
+-- ============================
 local camera = workspace.CurrentCamera
 if camera then
     for _, child in ipairs(camera:GetChildren()) do
