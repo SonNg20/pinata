@@ -1,9 +1,9 @@
 -- =============================================
 --  CẤU HÌNH TỪ BÊN NGOÀI
 -- =============================================
-getgenv().FpsCap = getgenv().FpsCap or 15
-getgenv().DeleteUI = getgenv().DeleteUI or true
-getgenv().DeleteBreakable = getgenv().DeleteBreakable or true
+getgenv().FpsCap = 15
+getgenv().DeleteUI = false
+getgenv().DeleteBreakable = true
 
 if setfpscap then
     setfpscap(getgenv().FpsCap)
