@@ -1,9 +1,9 @@
 -- =============================================
 --  CẤU HÌNH TỪ BÊN NGOÀI
 -- =============================================
-getgenv().FpsCap = getgenv().FpsCap or 15
-getgenv().DeleteUI = getgenv().DeleteUI or true
-getgenv().DeleteBreakable = getgenv().DeleteBreakable or true
+getgenv().FpsCap = 9
+getgenv().DeleteUI = false
+getgenv().DeleteBreakable = true
 
 if setfpscap then
     setfpscap(getgenv().FpsCap)
@@ -55,9 +55,15 @@ local function deleteSkyAndAtmosphere(v)
 end
 
 -- ============================
--- 🗑️ HÀM XÓA EFFECT (DÙNG DESTROY) - BẠN MỚI GỬI
+-- 🗑️ HÀM XÓA EFFECT (ĐÃ THÊM BILLBOARDGUI)
 -- ============================
 local function removeEffects(obj)
+    -- ✅ THÊM DÒNG NÀY ĐỂ ẨN TÊN PET, DÒNG CHỮ TIỀN, THANH MÁU...
+    if obj:IsA("BillboardGui") then
+        obj.Enabled = false
+        return 
+    end
+
     if obj:IsA("ParticleEmitter")
     or obj:IsA("Trail")
     or obj:IsA("Smoke")
@@ -186,7 +192,7 @@ local function hideAndDisableCharacter(character)
         elseif obj:IsA("Decal") then obj.Transparency = 1
         elseif obj:IsA("BillboardGui") then obj.Enabled = false
         elseif obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Beam") then
-            obj:Destroy() -- Dùng Destroy cho đặc điểm của character
+            obj:Destroy()
         end
     end
 end
