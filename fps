@@ -2,7 +2,7 @@ wait(30)
 -- =============================================
 --  CẤU HÌNH TỪ BÊN NGOÀI
 -- =============================================
-getgenv().FpsCap = 9
+getgenv().FpsCap = 15
 getgenv().DeleteUI = false
 getgenv().DeleteBreakable = true
 
