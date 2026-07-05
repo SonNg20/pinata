@@ -4,6 +4,7 @@
 getgenv().FpsCap = 15
 getgenv().DeleteUI = false
 getgenv().DeleteBreakable = true
+getgenv().FPSUI = true  -- true: hiện FPS, false: ẩn FPS
 
 if setfpscap then
     setfpscap(getgenv().FpsCap)
@@ -25,6 +26,43 @@ local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 task.wait(5)
+
+-- ============================
+-- 🎯 HIỂN THỊ FPS
+-- ============================
+if getgenv().FPSUI == true then
+    local fpsGui = Instance.new("ScreenGui")
+    fpsGui.Name = "FPSDisplay"
+    fpsGui.IgnoreGuiInset = true
+    fpsGui.Parent = game.CoreGui
+
+    local fpsLabel = Instance.new("TextLabel")
+    fpsLabel.Size = UDim2.new(0, 90, 0, 35)
+    fpsLabel.Position = UDim2.new(1, -100, 0, 15)
+    fpsLabel.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    fpsLabel.BackgroundTransparency = 0.5
+    fpsLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
+    fpsLabel.Font = Enum.Font.Code
+    fpsLabel.TextSize = 16
+    fpsLabel.TextXAlignment = Enum.TextXAlignment.Right
+    fpsLabel.Parent = fpsGui
+    Instance.new("UICorner", fpsLabel).CornerRadius = UDim.new(0, 6)
+
+    local lastTime = tick()
+    local frameCount = 0
+    local currentFPS = 0
+
+    game:GetService("RunService").RenderStepped:Connect(function()
+        frameCount = frameCount + 1
+        local currentTime = tick()
+        if currentTime - lastTime >= 1 then
+            currentFPS = math.floor(frameCount / (currentTime - lastTime))
+            fpsLabel.Text = "FPS: " .. currentFPS
+            frameCount = 0
+            lastTime = currentTime
+        end
+    end)
+end
 
 -- ============================
 -- BỆ ĐỠ CHỐNG RỚT
