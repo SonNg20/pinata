@@ -3,12 +3,10 @@ wait(15)
 --  CẤU HÌNH TỪ BÊN NGOÀI
 -- =============================================
 getgenv().FpsCap = 15
-getgenv().DeleteUI = false
+getgenv().DeleteUI = true
 getgenv().DeleteBreakable = true
 
-if setfpscap then
-    setfpscap(getgenv().FpsCap)
-end
+if setfpscap then setfpscap(getgenv().FpsCap) end
 
 local settings = settings()
 if settings and settings.Rendering then
@@ -36,7 +34,7 @@ local hrp = char:WaitForChild("HumanoidRootPart")
 local platform = Instance.new("Part")
 platform.Size = Vector3.new(15, 1, 15)
 platform.Anchored = true
-platform.Transparency = 1 
+platform.Transparency = 1
 platform.CanCollide = true
 platform.Parent = workspace
 
@@ -46,55 +44,28 @@ local function safeTeleport(targetPos)
 end
 
 -- ============================
--- 🌤️ XÓA BẦU TRỜI & KHÍ QUYỂN
+-- HIỆU ỨNG & BẦU TRỜI
 -- ============================
 local function deleteSkyAndAtmosphere(v)
-    if v:IsA("Sky") or v:IsA("Atmosphere") then
-        v:Destroy()
-        return
-    end
+    if v:IsA("Sky") or v:IsA("Atmosphere") then v:Destroy() return end
 end
 
--- ============================
--- 🗑️ HÀM XÓA EFFECT (ĐÃ THÊM BILLBOARDGUI)
--- ============================
 local function removeEffects(obj)
-    -- ✅ THÊM DÒNG NÀY ĐỂ ẨN TÊN PET, DÒNG CHỮ TIỀN, THANH MÁU...
-    if obj:IsA("BillboardGui") then
-        obj.Enabled = false
-        return 
-    end
-
-    if obj:IsA("ParticleEmitter")
-    or obj:IsA("Trail")
-    or obj:IsA("Smoke")
-    or obj:IsA("Fire")
-    or obj:IsA("Beam") then
-        obj:Destroy()
-    end
-
-    if obj:IsA("PointLight")
-    or obj:IsA("SpotLight")
-    or obj:IsA("SurfaceLight") then
-        obj:Destroy()
-    end
-
-    if obj:IsA("PostEffect") then
-        obj.Enabled = false
-    end
+    if obj:IsA("BillboardGui") then obj.Enabled = false return end
+    if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Smoke") or obj:IsA("Fire") or obj:IsA("Beam") then obj:Destroy() end
+    if obj:IsA("PointLight") or obj:IsA("SpotLight") or obj:IsA("SurfaceLight") then obj:Destroy() end
+    if obj:IsA("PostEffect") then obj.Enabled = false end
 end
 
 -- ============================
--- ẨN MAP (DÙNG GETNILINSTANCES)
+-- HÀM BẢO VỆ
 -- ============================
 local function isProtected(v)
-    if v:IsA("LuaSourceContainer") or v:IsA("ModuleScript")
-    or v:IsA("Script") or v:IsA("LocalScript") then return true end
+    if v:IsA("LuaSourceContainer") or v:IsA("ModuleScript") or v:IsA("Script") or v:IsA("LocalScript") then return true end
     local parent = v.Parent
     while parent do
         if parent.Name == "ClientModule" then return true end
-        if parent:IsA("LuaSourceContainer") or parent:IsA("ModuleScript")
-        or parent:IsA("Script") or parent:IsA("LocalScript") then return true end
+        if parent:IsA("LuaSourceContainer") or parent:IsA("ModuleScript") or parent:IsA("Script") or parent:IsA("LocalScript") then return true end
         parent = parent.Parent
     end
     return false
@@ -112,67 +83,62 @@ local function isBreakable(v)
 end
 
 -- ============================
--- QUÉT LẦN 1: WORKSPACE VÀ GETNILINSTANCES
+-- QUÉT MAP TỪ TỪ (CHỐNG ĐƠ)
 -- ============================
-for _, v in next, workspace:GetDescendants() do
-    pcall(function()
-        if not isProtected(v) and not isPlayerBody(v) then
-            deleteSkyAndAtmosphere(v)
-            removeEffects(v)
-            if v:IsA("BasePart") then
-                v.Transparency = 1
-                v.CastShadow = false
-                if v:IsA("MeshPart") then v.TextureID = "" end
-            end
-            if v:IsA("Decal") or v:IsA("Texture") then
-                v.Transparency = 1
-            end
+task.spawn(function()
+    -- Xử lý Workspace
+    local descendants = workspace:GetDescendants()
+    local step = 0
+    while step < #descendants do
+        for i = step + 1, math.min(step + 80, #descendants) do
+            local v = descendants[i]
+            pcall(function()
+                if not isProtected(v) and not isPlayerBody(v) then
+                    deleteSkyAndAtmosphere(v)
+                    removeEffects(v)
+                    if v:IsA("BasePart") then
+                        v.Transparency = 1
+                        v.CastShadow = false
+                        if v:IsA("MeshPart") then v.TextureID = "" end
+                    end
+                    if v:IsA("Decal") or v:IsA("Texture") then
+                        v.Transparency = 1
+                    end
+                end
+            end)
         end
-    end)
-end
+        step = step + 80
+        task.wait(0.05) -- Nghỉ 0.05s để game thở
+    end
 
-for _, v in next, getnilinstances() do
-    pcall(function()
-        if v:IsA("BasePart") then
-            v.Transparency = 1
-        end
-        for _, v1 in next, v:GetDescendants() do
-            if v1:IsA("BasePart") then
-                v1.Transparency = 1
+    -- Xử lý getnilinstances (rác)
+    for _, v in next, getnilinstances() do
+        pcall(function()
+            if v:IsA("BasePart") then v.Transparency = 1 end
+            for _, v1 in next, v:GetDescendants() do
+                if v1:IsA("BasePart") then v1.Transparency = 1 end
             end
-        end
-    end)
-end
+        end)
+    end
+end)
 
 -- ============================
--- BẮT CÁC OBJECT MỚI SINH RA
+-- BẮT OBJECT MỚI SINH RA
 -- ============================
 workspace.DescendantAdded:Connect(function(v)
     pcall(function()
-        if isPlayerBody(v) then return end
-        if isProtected(v) then return end
-        
+        if isPlayerBody(v) or isProtected(v) then return end
         deleteSkyAndAtmosphere(v)
         removeEffects(v)
-
         if v:IsA("BasePart") then
             v.Transparency = 1
             v.CastShadow = false
             if v:IsA("MeshPart") then v.TextureID = "" end
         end
-        if v:IsA("Decal") or v:IsA("Texture") then
-            v.Transparency = 1
-        end
+        if v:IsA("Decal") or v:IsA("Texture") then v.Transparency = 1 end
     end)
 end)
 
--- ============================
--- QUÉT EFFECT TOÀN GAME
--- ============================
-for _, v in ipairs(game:GetDescendants()) do
-    removeEffects(v)
-    deleteSkyAndAtmosphere(v)
-end
 game.DescendantAdded:Connect(removeEffects)
 
 -- ============================
@@ -192,9 +158,7 @@ local function hideAndDisableCharacter(character)
         if obj:IsA("BasePart") then obj.Transparency = 1
         elseif obj:IsA("Decal") then obj.Transparency = 1
         elseif obj:IsA("BillboardGui") then obj.Enabled = false
-        elseif obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Beam") then
-            obj:Destroy()
-        end
+        elseif obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Beam") then obj:Destroy() end
     end
 end
 
@@ -234,15 +198,11 @@ if getgenv().DeleteUI == true then
         pcall(applyInvisibility, v)
     end
 
-    PlayerGui.DescendantAdded:Connect(function(v)
-        if v:IsA("ScreenGui") or v:IsA("BillboardGui") or v:IsA("SurfaceGui") or v:IsA("GuiObject") then
-            pcall(applyInvisibility, v)
-        end
-    end)
+    PlayerGui.DescendantAdded:Connect(applyInvisibility)
 end
 
 -- ============================
--- DỌN DẸP CAMERA
+-- DỌN CAMERA & LIGHTING
 -- ============================
 local camera = workspace.CurrentCamera
 if camera then
@@ -252,17 +212,10 @@ if camera then
     camera.ChildAdded:Connect(function(child)
         if child:IsA("Model") or child:IsA("BasePart") then child:Destroy() end
     end)
-    for _, v in ipairs(camera:GetDescendants()) do
-        removeEffects(v)
-    end
-    camera.DescendantAdded:Connect(function(v)
-        removeEffects(v)
-    end)
+    for _, v in ipairs(camera:GetDescendants()) do removeEffects(v) end
+    camera.DescendantAdded:Connect(removeEffects)
 end
 
--- ============================
--- DỌN DẸP TRONG LIGHTING
--- ============================
 local Lighting = game:GetService("Lighting")
 for _, v in ipairs(Lighting:GetDescendants()) do
     removeEffects(v)
@@ -274,10 +227,10 @@ Lighting.DescendantAdded:Connect(function(v)
 end)
 
 -- ============================
--- DỌN DẸP RAM
+-- DỌN RAM
 -- ============================
 task.spawn(function()
     while task.wait(15) do
-        pcall(function() collectgarbage("collect") end)
+        pcall(collectgarbage, "collect")
     end
 end)
