@@ -3,7 +3,7 @@ wait(15)
 --  CẤU HÌNH TỪ BÊN NGOÀI
 -- =============================================
 getgenv().FpsCap = 15
-getgenv().DeleteUI = true  -- true: ẩn UI game, false: giữ UI
+getgenv().DeleteUI = false  -- true: ẩn UI game, false: giữ UI
 
 if setfpscap then
     setfpscap(getgenv().FpsCap)
