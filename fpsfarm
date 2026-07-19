@@ -28,6 +28,11 @@ workspace.DescendantAdded:Connect(function(v)
     end)
 end)
 local function removeEffects(obj)
+    if obj:IsA("BillboardGui") then
+        obj.Enabled = false
+        return 
+    end
+local function removeEffects(obj)
     if obj:IsA("ParticleEmitter")
     or obj:IsA("Trail")
     or obj:IsA("Smoke")
