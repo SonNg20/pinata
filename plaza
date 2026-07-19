@@ -377,51 +377,68 @@ local function sendDiscordWebhook(itemName, quantity, pricePaid, currentRap, ass
     end
 end
 
--- [5. HÀM ĐỔI SERVER NÂNG CẤP - CHECK DỮ LIỆU 100 SERVER CŨ]
+-- =======================================================
+-- [5. HÀM ĐỔI SERVER NÂNG CẤP - FIX LOGIC TRÙNG PHÒNG CHUẨN]
+-- =======================================================
 local function switchToCrowdedServer()
+    local attempts = 0
     while true do
-        print("🔄 Đang quét danh sách Server lý tưởng (Target: 20-30 người)...")
+        attempts = attempts + 1
+        -- Luân phiên Asc và Desc để lấy các cụm server khác nhau của Roblox, tránh bị kẹt danh sách cũ
+        local sortMethod = (attempts % 2 == 0) and "Desc" or "Asc"
+        print("🔄 Đang quét danh sách Server lý tưởng (Phương thức: " .. sortMethod .. ")...")
         
         local success, result = pcall(function()
-            return HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"))
+            return HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=" .. sortMethod .. "&limit=100"))
         end)
-        
-        if not success or not result or not result.data then
-            local backupSuccess, backupResult = pcall(function()
-                return HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Desc&limit=100"))
-            end)
-            if backupSuccess and backupResult and backupResult.data then
-                result = backupResult
-            end
-        end
 
-        if result and result.data then
+        if result and result.data and #result.data > 0 then
             local validServers = {}
+            local totalChecked = 0
+            local duplicateCount = 0
+
             for _, server in ipairs(result.data) do
-                if server.playing and server.playing >= 20 and server.playing <= 30 then
-                    if server.id ~= game.JobId and not table.find(getgenv().ServerHistory, server.id) then
+                if server.playing and server.id ~= game.JobId then
+                    totalChecked = totalChecked + 1
+                    
+                    -- Kiểm tra xem có trùng với lịch sử 100 phòng cũ không
+                    local isDuplicate = table.find(getgenv().ServerHistory, server.id) ~= nil
+                    
+                    if isDuplicate then
+                        duplicateCount = duplicateCount + 1
+                    end
+
+                    -- Tiêu chí chọn: Phòng từ 20-30 người VÀ KHÔNG TRÙNG phòng cũ
+                    if server.playing >= 20 and server.playing <= 30 and not isDuplicate then
                         table.insert(validServers, server)
                     end
                 end
             end
             
+            -- Nếu tìm thấy phòng sạch và chuẩn tiêu chí -> Nhảy ngay
             if #validServers > 0 then
                 local chosenServer = validServers[math.random(1, #validServers)]
-                print(string.format("🚀 Đã lọc ra phòng sạch hoàn toàn. Tiến hành nhảy: ID %s (%d người)...", chosenServer.id, chosenServer.playing))
+                print(string.format("🚀 Đã tìm thấy phòng mới! Tiến hành nhảy: ID %s (%d người)...", chosenServer.id, chosenServer.playing))
                 
                 pcall(function()
                     TeleportService:TeleportToPlaceInstance(game.PlaceId, chosenServer.id, Players.LocalPlayer)
                 end)
                 task.wait(7)
             else
-                print("⚠️ Đang bị cạn phòng mới (trùng danh sách 100 phòng đã lưu). Đang dọn bớt bộ nhớ...")
-                if #getgenv().ServerHistory > 15 then
-                    table.remove(getgenv().ServerHistory, 1)
+                -- BÁO CÁO CHÍNH XÁC: Nếu thực sự trùng phòng cũ thì mới báo trùng
+                if duplicateCount > 0 and duplicateCount == totalChecked then
+                    print("⚠️ Phát hiện các sảnh quét được đều nằm trong lịch sử 100 phòng cũ. Đang dọn bớt bộ nhớ...")
+                    if #getgenv().ServerHistory > 10 then
+                        table.remove(getgenv().ServerHistory, 1) -- Xóa bớt 1 phòng cũ nhất để giải phóng lối đi
+                    end
+                else
+                    print("⚠️ Không có phòng nào đạt quy mô 20-30 người trong danh sách hiện tại. Đang quét lại cụm khác...")
                 end
                 task.wait(4)
             end
         else
-            print("🚨 Lỗi kết nối API mạng. Thực hiện tự hop ngẫu nhiên phòng nội bộ...")
+            print("🚨 Lỗi kết nối API mạng hoặc Roblox chặn Request. Tự động hop phòng ngẫu nhiên sau 5s...")
+            task.wait(5)
             pcall(function()
                 TeleportService:Teleport(game.PlaceId, Players.LocalPlayer)
             end)
@@ -429,14 +446,6 @@ local function switchToCrowdedServer()
         end
     end
 end
-
-pcall(function()
-    TeleportService.TeleportInitFailed:Connect(function(player, teleportResult, errorMessage)
-        warn("❌ Lỗi tải phòng: " .. tostring(errorMessage) .. ". Đang tìm kiếm sảnh mới...")
-        task.spawn(switchToCrowdedServer)
-    end)
-end)
-
 -- [6. BẤT ĐẦU VÒNG QUÉT CHỢ TRÊN CÁC SẠP HÀNG]
 local BoothsFolder = workspace:FindFirstChild("__THINGS") and workspace.__THINGS:FindFirstChild("Booths")
 
