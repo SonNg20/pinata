@@ -1,5 +1,5 @@
 -- =======================================================
--- [SNIPER DEEPSEACOMMUNITY 1.0 - PLACE CHECK INTEGRATED]
+-- [SNIPER DEEPSEACOMMUNITY 1.0 - INTEGRATED BUY ENGINE]
 -- =======================================================
 
 -- [1. CẤU HÌNH HỆ THỐNG & GETGENV]
@@ -17,46 +17,62 @@ getgenv().SniperConfig = {
         Enabled = true,
         {"All Exclusives", MaxPrice = "1b", PercentOffRap = "45%"}
     },
+    ["Misc"] = {
+        Enabled = true,
+        {"All Items", MaxPrice = "1b", PercentOffRap = "40%"} 
+    },
     ["Target"] = {
         Enabled = true,
         {"Mini Pinata", MaxPrice = "50k"},
-        {"Secret Key", MaxPrice = "14000"},
-        {"Secret Key Upper", MaxPrice = "14000"},
+        {"Secret Key", MaxPrice = "18k"},
+        {"Secret Key Upper", MaxPrice = "18k"},
+        {"Fantasy Spinny Wheel Ticket", MaxPrice = "25k"},
+        {"Void Spinny Wheel Ticket", MaxPrice = "20k"},
+        {"Mini Chest", MaxPrice = "25k"},
     }
 }
+
+-- [2. ĐỢI GAME LOAD XONG HOÀN TOÀN]
+if not game:IsLoaded() then
+    print("⏳ Game đang tải dữ liệu sảnh... Vui lòng đợi...")
+    game.Loaded:Wait()
+end
 
 local TeleportService = game:GetService("TeleportService")
 local Players = game:GetService("Players")
 local TRADING_PLAZA_ID = 15502339080
 
--- KIỂM TRA ĐANG Ở ĐÂU TRƯỚC KHI CHẠY TOOL
 if game.PlaceId ~= TRADING_PLAZA_ID then
     print("⚠️ Bạn đang không ở Trading Plaza. Tiến hành chuyển hướng sang Plaza...")
     pcall(function()
         TeleportService:Teleport(TRADING_PLAZA_ID, Players.LocalPlayer)
     end)
     task.wait(15)
-    return -- Dừng script sảnh cũ để chuẩn bị nhảy phòng
+    return 
 end
 
-print("✅ Đã xác nhận đang ở Trading Plaza! Khởi động Sniper Engine...")
+local BoothsFolder = workspace:FindFirstChild("__THINGS") and workspace.__THINGS:WaitForChild("Booths", 30)
+if not BoothsFolder then
+    print("🚨 Không tìm thấy thư mục Booths hoặc game load quá lâu. Tiến hành hop server mới...")
+    task.wait(2)
+end
 
--- [2. KHAI BÁO BIẾN HỆ THỐNG]
+print("✅ Đã xác nhận game load xong và ở Trading Plaza! Khởi động Sniper Engine...")
+
+-- [3. KHAI BÁO BIẾN HỆ THỐNG]
 local Library = require(game:GetService("ReplicatedStorage").Library)
 local Directory = Library.Directory or require(game:GetService("ReplicatedStorage").Library.Directory)
 local Market = game:GetService("MarketplaceService")
 local HttpService = game:GetService("HttpService")
-
-print("--- SNIPER WITH WEBHOOK & IN-GAME SERVER HOPPER ---")
 
 local MY_LOGO_URL = "https://i.postimg.cc/kgLGDvzx/Deep-Sea-Hub.png"
 local ImageCache = {}  
 local MarketCache = {} 
 local RAPWebCache = {} 
 local PurchaseRemote = game:GetService("ReplicatedStorage").Network.Booths_RequestPurchase
-local HasPurchasedInThisServer = false 
 
--- BỘ NHỚ LƯU TRỮ LỊCH SỬ KHỬ TRÙNG 100 SERVER GẦN NHẤT
+local HasPurchasedInThisServer = false
+
 if not getgenv().ServerHistory then
     getgenv().ServerHistory = {}
 end
@@ -110,7 +126,7 @@ local HardList = {
 	["134064160006487"] = {"Treasure", "Charm", "Exclusive"}
 }
 
--- [3. HÀM HỖ TRỢ HỆ THỐNG]
+-- [4. HÀM HỖ TRỢ HỆ THỐNG]
 local function getCurrentGems()
     local myGems = 0
     pcall(function()
@@ -153,8 +169,13 @@ fetchWebRAP()
 
 local function getWebRAP(itemId, itemClass, isGold, isShiny, isRainbow, tierLevel)
 	if #RAPWebCache == 0 then return 0 end
+    
+    if string.lower(itemId) == "mega chest empowered" then
+        itemId = "Mini Chest"
+    end
+
 	for _, itemData in ipairs(RAPWebCache) do
-		if itemData.category == itemClass and itemData.configData and itemData.configData.id == itemId then
+		if itemData.category == itemClass and itemData.configData and string.lower(tostring(itemData.configData.id)) == string.lower(tostring(itemId)) then
 			local config = itemData.configData
 			local match = true
 			if itemClass == "Pet" then
@@ -288,7 +309,7 @@ local function parseShortenedNumber(text)
 	return math.floor(number * multiplier)
 end
 
--- [4. HÀM PHÁT WEBHOOK DISCORD - MẸO HẠ THẤP THUMBNAIL]
+-- [5. HÀM PHÁT WEBHOOK DISCORD]
 local function sendDiscordWebhook(itemName, quantity, pricePaid, currentRap, assetId)
     if not getgenv().SniperWebhook or getgenv().SniperWebhook == "" then return end
     
@@ -298,14 +319,9 @@ local function sendDiscordWebhook(itemName, quantity, pricePaid, currentRap, ass
     local itemImageUrl = "https://i.imgur.com/WryWJ2K.png"
     if assetId and tonumber(assetId) > 0 then
         local thumbApiUrl = "https://thumbnails.roblox.com/v1/assets?assetIds=" .. tostring(assetId) .. "&size=420x420&format=Png&isCircular=false"
-        local thumbSuccess, thumbResponse = pcall(function()
-            return game:HttpGet(thumbApiUrl)
-        end)
-        
+        local thumbSuccess, thumbResponse = pcall(function() return game:HttpGet(thumbApiUrl) end)
         if thumbSuccess and thumbResponse then
-            local jsonSuccess, jsonDecode = pcall(function()
-                return HttpService:JSONDecode(thumbResponse)
-            end)
+            local jsonSuccess, jsonDecode = pcall(function() return HttpService:JSONDecode(thumbResponse) end)
             if jsonSuccess and jsonDecode and jsonDecode.data and jsonDecode.data[1] and jsonDecode.data[1].imageUrl then
                 itemImageUrl = jsonDecode.data[1].imageUrl 
             end
@@ -336,13 +352,9 @@ local function sendDiscordWebhook(itemName, quantity, pricePaid, currentRap, ass
         "    **Paid:** ` %s (%s Each) `\n" ..
         "    **RAP:** ` %s (%s Each) `\n" ..
         "    **Profit:** ` %s%s (%s%s%%) `",
-        Players.LocalPlayer.Name,
-        formatNum(getCurrentGems()),
-        itemName, formatNum(quantity),
-        formatNum(pricePaid), formatNum(eachPaid),
-        formatNum(currentRap), formatNum(eachRap),
-        profit >= 0 and "+" or "", formatNum(profit),
-        profit >= 0 and "+" or "", string.format("%.2f", profitPercent)
+        Players.LocalPlayer.Name, formatNum(getCurrentGems()), itemName, formatNum(quantity),
+        formatNum(pricePaid), formatNum(eachPaid), formatNum(currentRap), formatNum(eachRap),
+        profit >= 0 and "+" or "", formatNum(profit), profit >= 0 and "+" or "", string.format("%.2f", profitPercent)
     )
     
     local embedData = {
@@ -351,19 +363,12 @@ local function sendDiscordWebhook(itemName, quantity, pricePaid, currentRap, ass
         ["content"] = userMention ~= "" and userMention or nil,
         ["embeds"] = {
             {
-                ["author"] = {
-                    ["name"] = "🔍 You have sniped an item in Trading Plaza!"
-                },
+                ["author"] = { ["name"] = "🔍 You have sniped an item in Trading Plaza!" },
                 ["description"] = descriptionText,
                 ["color"] = 3447003, 
                 ["timestamp"] = DateTime.now():ToIsoDate(),
-                ["thumbnail"] = {
-                    ["url"] = itemImageUrl
-                },
-                ["footer"] = {
-                    ["text"] = "power by DeepSeaCommunity", 
-                    ["icon_url"] = MY_LOGO_URL
-                }
+                ["thumbnail"] = { ["url"] = itemImageUrl },
+                ["footer"] = { ["text"] = "power by DeepSeaCommunity", ["icon_url"] = MY_LOGO_URL }
             }
         }
     }
@@ -371,83 +376,128 @@ local function sendDiscordWebhook(itemName, quantity, pricePaid, currentRap, ass
     local headers = {["Content-Type"] = "application/json"}
     local request = http_request or request or syn.request or http.request
     if request then
-        pcall(function()
-            request({Url = url, Method = "POST", Headers = headers, Body = HttpService:JSONEncode(embedData)})
-        end)
+        pcall(function() request({Url = url, Method = "POST", Headers = headers, Body = HttpService:JSONEncode(embedData)}) end)
     end
 end
 
 -- =======================================================
--- [5. HÀM ĐỔI SERVER NÂNG CẤP - FIX LOGIC TRÙNG PHÒNG CHUẨN]
+-- [6. HÀM ĐỔI SERVER NÂNG CẤP - BẢN KHÓA 1000 SERVER CŨ QUA FILE]
 -- =======================================================
+local FILE_NAME = "ps99_sniper_server_history.txt"
+
+-- Hàm đọc danh sách server cũ từ file lưu trữ trên máy
+local function loadPermanentHistory()
+    local history = {}
+    if isfile and isfile(FILE_NAME) then
+        local content = readfile(FILE_NAME)
+        for id in string.gmatch(content, "[^\n]+") do
+            table.insert(history, id)
+        end
+    end
+    return history
+end
+
+-- Hàm lưu thêm server mới vào file (Giới hạn tối đa 200 phòng gần nhất để tránh nặng file)
+local function savePermanentHistory(newJobId)
+    local history = loadPermanentHistory()
+    if not table.find(history, newJobId) then
+        table.insert(history, newJobId)
+    end
+    if #history > 200 then
+        table.remove(history, 1) -- Xóa phòng cũ nhất
+    end
+    if writefile then
+        writefile(FILE_NAME, table.concat(history, "\n"))
+    end
+end
+
 local function switchToCrowdedServer()
+    print("🔄 Khởi động thuật toán lọc trùng Server nâng cao qua File Hệ Thống...")
+    
+    local permHistory = loadPermanentHistory()
     local attempts = 0
+    local nextCursor = ""
+    local minPlayers = 10
+    local maxPlayers = 25
+    
+    -- Ghi nhận luôn phòng hiện tại vào file để vĩnh viễn không quay lại
+    savePermanentHistory(game.JobId)
+    
     while true do
         attempts = attempts + 1
-        -- Luân phiên Asc và Desc để lấy các cụm server khác nhau của Roblox, tránh bị kẹt danh sách cũ
-        local sortMethod = (attempts % 2 == 0) and "Desc" or "Asc"
-        print("🔄 Đang quét danh sách Server lý tưởng (Phương thức: " .. sortMethod .. ")...")
         
-        local success, result = pcall(function()
-            return HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=" .. sortMethod .. "&limit=100"))
-        end)
+        -- Nếu thử 3 trang công khai không được, nới rộng biên độ sang sảnh rộng hơn để ưu tiên thoát phòng cũ
+        if attempts > 3 then
+            minPlayers = 5
+            maxPlayers = 30
+        end
+        
+        local sortMethod = (attempts % 2 == 0) and "Desc" or "Asc"
+        print(string.format("🔍 Quét Sảnh (Lần: %d | Yêu cầu: %d-%d người | Kiểu: %s)...", attempts, minPlayers, maxPlayers, sortMethod))
+        
+        local apiUrl = string.format(
+            "https://games.roblox.com/v1/games/%s/servers/Public?sortOrder=%s&limit=100&cursor=%s",
+            tostring(game.PlaceId), sortMethod, nextCursor
+        )
+        
+        local success, response = pcall(function() return game:HttpGet(apiUrl) end)
+        local result = success and response and pcall(function() return HttpService:JSONDecode(response) end) and HttpService:JSONDecode(response)
 
         if result and result.data and #result.data > 0 then
             local validServers = {}
-            local totalChecked = 0
-            local duplicateCount = 0
-
             for _, server in ipairs(result.data) do
-                if server.playing and server.id ~= game.JobId then
-                    totalChecked = totalChecked + 1
+                if server.id and server.id ~= game.JobId and server.playing then
+                    -- ĐỐI CHIẾU VỚI FILE LƯU TRỮ TRÊN MÁY: BẮT BUỘC KHÔNG ĐƯỢC TRÙNG
+                    local isVisited = table.find(permHistory, server.id) ~= nil
                     
-                    -- Kiểm tra xem có trùng với lịch sử 100 phòng cũ không
-                    local isDuplicate = table.find(getgenv().ServerHistory, server.id) ~= nil
-                    
-                    if isDuplicate then
-                        duplicateCount = duplicateCount + 1
-                    end
-
-                    -- Tiêu chí chọn: Phòng từ 20-30 người VÀ KHÔNG TRÙNG phòng cũ
-                    if server.playing >= 20 and server.playing <= 30 and not isDuplicate then
+                    if server.playing >= minPlayers and server.playing <= maxPlayers and not isVisited then
                         table.insert(validServers, server)
                     end
                 end
             end
             
-            -- Nếu tìm thấy phòng sạch và chuẩn tiêu chí -> Nhảy ngay
+            nextCursor = result.nextPageCursor or ""
+            
             if #validServers > 0 then
                 local chosenServer = validServers[math.random(1, #validServers)]
-                print(string.format("🚀 Đã tìm thấy phòng mới! Tiến hành nhảy: ID %s (%d người)...", chosenServer.id, chosenServer.playing))
+                print(string.format("🚀 Đã tìm thấy phòng sạch tuyệt đối! Tiến hành nhảy: ID %s (%d người)...", chosenServer.id, chosenServer.playing))
                 
-                pcall(function()
-                    TeleportService:TeleportToPlaceInstance(game.PlaceId, chosenServer.id, Players.LocalPlayer)
+                -- Ghi file phòng sắp vào
+                savePermanentHistory(chosenServer.id)
+                
+                pcall(function() 
+                    TeleportService:TeleportToPlaceInstance(game.PlaceId, chosenServer.id, Players.LocalPlayer) 
                 end)
-                task.wait(7)
+                task.wait(6)
+                return
             else
-                -- BÁO CÁO CHÍNH XÁC: Nếu thực sự trùng phòng cũ thì mới báo trùng
-                if duplicateCount > 0 and duplicateCount == totalChecked then
-                    print("⚠️ Phát hiện các sảnh quét được đều nằm trong lịch sử 100 phòng cũ. Đang dọn bớt bộ nhớ...")
-                    if #getgenv().ServerHistory > 10 then
-                        table.remove(getgenv().ServerHistory, 1) -- Xóa bớt 1 phòng cũ nhất để giải phóng lối đi
-                    end
-                else
-                    print("⚠️ Không có phòng nào đạt quy mô 20-30 người trong danh sách hiện tại. Đang quét lại cụm khác...")
-                end
-                task.wait(4)
+                print("⚠️ Các phòng ở trang này đều bị trùng lịch sử đã vào hoặc sai quy mô. Đang lật trang...")
+                task.wait(2.5) 
             end
         else
-            print("🚨 Lỗi kết nối API mạng hoặc Roblox chặn Request. Tự động hop phòng ngẫu nhiên sau 5s...")
-            task.wait(5)
-            pcall(function()
-                TeleportService:Teleport(game.PlaceId, Players.LocalPlayer)
-            end)
+            -- Giải pháp khẩn cấp bằng Token ngẫu nhiên nếu dính Rate Limit mạng toàn diện
+            print("🚨 API Web bị chặn tạm thời. Tiến hành ép luồng tạo sảnh mới...")
+            local teleportOptions = Instance.new("TeleportOptions")
+            teleportOptions:SetTeleportData({
+                ["ServerJumpToken"] = HttpService:GenerateGUID(false),
+                ["TimeToken"] = os.time()
+            })
+            pcall(function() TeleportService:Teleport(game.PlaceId, Players.LocalPlayer, nil, teleportOptions) end)
             task.wait(10)
+            return
         end
     end
 end
--- [6. BẤT ĐẦU VÒNG QUÉT CHỢ TRÊN CÁC SẠP HÀNG]
-local BoothsFolder = workspace:FindFirstChild("__THINGS") and workspace.__THINGS:FindFirstChild("Booths")
+
+pcall(function()
+    TeleportService.TeleportInitFailed:Connect(function(player, teleportResult, errorMessage)
+        warn("❌ Lỗi tải phòng: " .. tostring(errorMessage) .. ". Đang quét sảnh mới...")
+        task.wait(2)
+        task.spawn(switchToCrowdedServer)
+    end)
+end)
+-- [7. BẮT ĐẦU VÒNG QUÉT CHỢ TRÊN CÁC SẠP HÀNG]
+local foundAnyTargetItem = false 
 
 if BoothsFolder then
 	for _, booth in ipairs(BoothsFolder:GetChildren()) do
@@ -571,7 +621,19 @@ if BoothsFolder then
 				local targetConfig = getgenv().SniperConfig["Target"]
 				if targetConfig and targetConfig.Enabled then
 					for _, rule in ipairs(targetConfig) do
-						if string.lower(realName) == string.lower(rule[1]) or string.lower(itemObj.Name) == string.lower(rule[1]) then
+                        local configRuleName = string.lower(rule[1])
+                        local inGameName = string.lower(realName)
+                        local objectName = string.lower(itemObj.Name)
+                        
+                        local nameMatch = (inGameName == configRuleName or objectName == configRuleName)
+                        if not nameMatch then
+                            if (configRuleName == "mini chest" or configRuleName == "mega chest empowered") and 
+                               (inGameName == "mini chest" or inGameName == "mega chest empowered" or objectName == "mini chest" or objectName == "mega chest empowered") then
+                                nameMatch = true
+                            end
+                        end
+
+						if nameMatch then
 							local maxAllowedPrice = parseConfigNumber(rule.MaxPrice)
 							if priceInt <= maxAllowedPrice then shouldBuy = true end
 							break
@@ -621,11 +683,34 @@ if BoothsFolder then
 									break
 								end
 							end
+                        
+                        elseif itemClass == "Misc" then
+                            for _, rule in ipairs(cfgGroup) do
+                                local configRuleName = string.lower(rule[1])
+                                local inGameName = string.lower(realName)
+                                
+                                local isMatch = (configRuleName == "all items" or inGameName == configRuleName)
+                                if not isMatch and (configRuleName == "mini chest" and inGameName == "mega chest empowered") then
+                                    isMatch = true
+                                end
+
+                                if isMatch then
+                                    local maxAllowedPrice = parseConfigNumber(rule.MaxPrice)
+                                    local targetDiscount = parsePercent(rule.PercentOffRap)
+                                    
+                                    if priceInt <= maxAllowedPrice and discount >= targetDiscount then
+                                        shouldBuy = true
+                                    end
+                                    break
+                                end
+                            end
 						end
 					end
 				end
 
+				-- [TÍCH HỢP HỆ THỐNG MUA NGUYÊN BẢN TỪ SCRIPT CŨ CHẠY ỔN ĐỊNH]
 				if shouldBuy then
+					foundAnyTargetItem = true 
 					local myCurrentGems = getCurrentGems()
 					local maxTotalPrice = priceInt * amountInt
 					local finalPurchaseQuantity = amountInt
@@ -639,6 +724,7 @@ if BoothsFolder then
 						local totalRapValue = rapPrice * finalPurchaseQuantity
 						local cleanName = realName:gsub("%s+[IVXLCDM]+$", ""):gsub("%s+%d+$", ""):gsub("%s+[Ee]nchant$", ""):gsub("%s+[Bb]ook$", ""):match("^%s*(.-)%s*$")
 						
+						-- Giữ cấu trúc nguyên bản chính xác 100% bao gồm cả mã Handle
 						local purchaseArgs = {
 							[1] = tonumber(ownerID),
 							[2] = {[tostring(actualItemUID)] = tonumber(finalPurchaseQuantity)},
@@ -666,7 +752,7 @@ if BoothsFolder then
 							print(string.format("✅ Thành công mua được x%d %s!", finalPurchaseQuantity, cleanName))
 							HasPurchasedInThisServer = true 
 							task.spawn(function()
-							    sendDiscordWebhook(cleanName, finalPurchaseQuantity, actualCost, totalRapValue, currentAssetId)
+								sendDiscordWebhook(cleanName, finalPurchaseQuantity, actualCost, totalRapValue, currentAssetId)
 							end)
 						end
 					end
@@ -677,9 +763,15 @@ if BoothsFolder then
 	end
 end
 
--- [7. ĐIỀU HƯỚNG VÒNG LẶP ĐỔI SERVER - ĐỢI 10S SAU QUÉT]
+-- [8. ĐIỀU HƯỚNG VÒNG LẶP ĐỔI SERVER]
 print("⏳ Đã hoàn thành quét sạch tất cả các booth trong Server này.")
-print("⏳ Tiến hành đếm ngược 10 giây trước khi thực hiện chuyển sang Server mới hoàn toàn...")
-task.wait(10)
+if not foundAnyTargetItem then
+    print("Không tìm thấy vật phẩm cần mua")
+    print("⏳ Rút ngắn thời gian chờ: Đang chuẩn bị chuyển sảnh sau 1 giây...")
+    task.wait(1) 
+else
+    print("⏳ Đang đếm ngược 10 giây để đảm bảo gửi dữ liệu webhook an toàn...")
+    task.wait(10) 
+end
 
 switchToCrowdedServer()
