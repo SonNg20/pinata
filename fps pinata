@@ -1,3 +1,4 @@
+getgenv().FpsCap = 15
 if setfpscap then
     setfpscap(getgenv().FpsCap)
 end
