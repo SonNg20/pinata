@@ -8,7 +8,7 @@ local RADIUS = 18
 local DELAY = 0.005
 local THREAD_COUNT = 4
 local CHECK_INTERVAL = 0.5
-local MAX_FAILS = 3
+local MAX_FAILS = 1000000
 
 local isRunning = false
 local giftUID = nil
