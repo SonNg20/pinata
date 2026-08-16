@@ -1,0 +1,139 @@
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local SaveModule = require(ReplicatedStorage:WaitForChild("Library"):WaitForChild("Client"):WaitForChild("Save"))
+local KX_Release = ReplicatedStorage:WaitForChild("Network"):WaitForChild("KX_Release")
+local LocalPlayer = Players.LocalPlayer
+
+local RADIUS = 18
+local DELAY = 0.005
+local THREAD_COUNT = 4
+local CHECK_INTERVAL = 0.5        
+local MAX_FAILS = 3               
+
+local isRunning = false
+local giftUID = nil
+local totalAmount = 0
+local failCount = 0
+local callCount = 0
+local function getGiftInfo()
+    local data = SaveModule.Get()
+    if not data or not data.Inventory then return nil, 0 end
+    for _, category in pairs(data.Inventory) do
+        for uid, item in pairs(category) do
+            local id = tostring(item.id):lower()
+            if id:find("fiesta") and id:find("gift") then
+                local amount = item._am or item.am or 1
+                return uid, amount
+            end
+        end
+    end
+    return nil, 0
+end
+local function getPositionsAroundPlayer()
+    local positions = {}
+    local char = LocalPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then
+        for i = 1, 8 do table.insert(positions, Vector3.new(0, 0, 0)) end
+        return positions
+    end
+    local center = root.Position
+    for i = 1, 8 do
+        local angle = (i - 1) * math.pi / 4
+        local r = RADIUS + (math.random() - 0.5) * 6
+        local a = angle + (math.random() - 0.5) * 0.4
+        local x = center.X + r * math.cos(a)
+        local z = center.Z + r * math.sin(a)
+        local y = center.Y
+        table.insert(positions, Vector3.new(x, y, z))
+    end
+    return positions
+end
+local function getBatchSize()
+    if totalAmount >= 8 then return 8
+    elseif totalAmount >= 4 then return 4
+    elseif totalAmount >= 1 then return 1
+    else return 0 end
+end
+
+local function openGift(amount)
+    if amount <= 0 or not giftUID then return end
+    local positions = getPositionsAroundPlayer()
+    local args = {giftUID, amount, positions}
+    
+    -- Thử FireServer trước (nhanh nhất)
+    local success = pcall(function()
+        KX_Release:FireServer(unpack(args))
+    end)
+    
+    if not success then
+        -- Nếu FireServer lỗi, thử InvokeServer (có chờ)
+        pcall(function()
+            KX_Release:InvokeServer(unpack(args))
+        end)
+    end
+    
+    totalAmount = totalAmount - amount  -- giảm tạm
+    callCount = callCount + 1
+end
+
+local function spamThread()
+    while isRunning do
+        local batch = getBatchSize()
+        if batch <= 0 then break end
+        openGift(batch)
+        task.wait(DELAY)
+    end
+end
+
+local function continuousCheck()
+    while isRunning do
+        task.wait(CHECK_INTERVAL)
+        local _, newTotal = getGiftInfo()
+        
+        if newTotal == totalAmount then
+            failCount = failCount + 1
+            print(string.format("[CHECK] Số lượng không đổi (%d) - lần %d/%d", totalAmount, failCount, MAX_FAILS))
+        else
+            totalAmount = newTotal
+            failCount = 0
+            print("[CHECK] Còn lại:", totalAmount)
+        end
+        
+        if totalAmount <= 0 then
+            isRunning = false
+            print(" Đã mở hết Fiesta Gift!")
+            break
+        end
+        
+        if failCount >= MAX_FAILS then
+            isRunning = false
+            print("số lượng không giảm sau " .. MAX_FAILS .. " lần kiểm tra.")
+            break
+        end
+    end
+end
+
+local function start()
+    local uid, amount = getGiftInfo()
+    if not uid or amount <= 0 then
+        print("hết")
+        return
+    end
+    
+    giftUID = uid
+    totalAmount = amount
+    isRunning = true
+    failCount = 0
+    callCount = 0
+
+    print(string.format(" Start %d gift (UID: %s)", totalAmount, giftUID))
+    print(string.format(" Số luồng: %d, Delay: %s, Batch: %d (tự động)", THREAD_COUNT, tostring(DELAY), getBatchSize()))
+    
+    for i = 1, THREAD_COUNT do
+        task.spawn(spamThread)
+    end
+    task.spawn(continuousCheck)
+end
+
+start()
