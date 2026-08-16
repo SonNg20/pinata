@@ -7,14 +7,15 @@ local LocalPlayer = Players.LocalPlayer
 local RADIUS = 18
 local DELAY = 0.005
 local THREAD_COUNT = 4
-local CHECK_INTERVAL = 0.5        
-local MAX_FAILS = 3               
+local CHECK_INTERVAL = 0.5
+local MAX_FAILS = 3
 
 local isRunning = false
 local giftUID = nil
 local totalAmount = 0
 local failCount = 0
 local callCount = 0
+
 local function getGiftInfo()
     local data = SaveModule.Get()
     if not data or not data.Inventory then return nil, 0 end
@@ -29,6 +30,7 @@ local function getGiftInfo()
     end
     return nil, 0
 end
+
 local function getPositionsAroundPlayer()
     local positions = {}
     local char = LocalPlayer.Character
@@ -49,6 +51,7 @@ local function getPositionsAroundPlayer()
     end
     return positions
 end
+
 local function getBatchSize()
     if totalAmount >= 8 then return 8
     elseif totalAmount >= 4 then return 4
@@ -61,20 +64,17 @@ local function openGift(amount)
     local positions = getPositionsAroundPlayer()
     local args = {giftUID, amount, positions}
     
-    -- Thử FireServer trước (nhanh nhất)
     local success = pcall(function()
         KX_Release:FireServer(unpack(args))
     end)
-    
     if not success then
-        -- Nếu FireServer lỗi, thử InvokeServer (có chờ)
         pcall(function()
             KX_Release:InvokeServer(unpack(args))
         end)
     end
-    
-    totalAmount = totalAmount - amount  -- giảm tạm
+    totalAmount = totalAmount - amount
     callCount = callCount + 1
+    -- Không cập nhật UI vì không có label số lượng
 end
 
 local function spamThread()
@@ -90,7 +90,6 @@ local function continuousCheck()
     while isRunning do
         task.wait(CHECK_INTERVAL)
         local _, newTotal = getGiftInfo()
-        
         if newTotal == totalAmount then
             failCount = failCount + 1
             print(string.format("[CHECK] Số lượng không đổi (%d) - lần %d/%d", totalAmount, failCount, MAX_FAILS))
@@ -99,41 +98,96 @@ local function continuousCheck()
             failCount = 0
             print("[CHECK] Còn lại:", totalAmount)
         end
-        
         if totalAmount <= 0 then
             isRunning = false
-            print(" Đã mở hết Fiesta Gift!")
+            print("Đã mở hết Fiesta Gift!")
+            updateButton()   -- cập nhật nút về trạng thái dừng
             break
         end
-        
         if failCount >= MAX_FAILS then
             isRunning = false
-            print("số lượng không giảm sau " .. MAX_FAILS .. " lần kiểm tra.")
+            print("Số lượng không giảm sau " .. MAX_FAILS .. " lần kiểm tra.")
+            updateButton()
             break
         end
     end
 end
 
-local function start()
+local function startAuto()
     local uid, amount = getGiftInfo()
     if not uid or amount <= 0 then
-        print("hết")
+        print("Không có Fiesta Gift để mở.")
         return
     end
-    
     giftUID = uid
     totalAmount = amount
-    isRunning = true
     failCount = 0
     callCount = 0
+    isRunning = true
 
-    print(string.format(" Start %d gift (UID: %s)", totalAmount, giftUID))
-    print(string.format(" Số luồng: %d, Delay: %s, Batch: %d (tự động)", THREAD_COUNT, tostring(DELAY), getBatchSize()))
-    
+    print(string.format("Start %d gift (UID: %s)", totalAmount, giftUID))
+    print(string.format("Số luồng: %d, Delay: %s, Batch: %d (tự động)", THREAD_COUNT, tostring(DELAY), getBatchSize()))
+
     for i = 1, THREAD_COUNT do
         task.spawn(spamThread)
     end
     task.spawn(continuousCheck)
+    updateButton()
 end
 
-start()
+local function stopAuto()
+    isRunning = false
+    print("Đã dừng tự động mở quà.")
+    updateButton()
+end
+
+local playerGui = LocalPlayer:WaitForChild("PlayerGui")
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "FiestaGiftAutoGUI"
+screenGui.ResetOnSpawn = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+screenGui.DisplayOrder = 999
+screenGui.IgnoreGuiInset = true
+screenGui.Parent = playerGui
+
+local button = Instance.new("TextButton")
+button.Name = "ToggleButton"
+button.Size = UDim2.new(0, 120, 0, 36)
+button.Position = UDim2.new(0, 10, 0, 150)   -- góc trái, cách top 30px
+button.BackgroundColor3 = Color3.fromRGB(60, 120, 255)
+button.TextColor3 = Color3.new(1, 1, 1)
+button.TextScaled = true
+button.Font = Enum.Font.SourceSansBold
+button.ZIndex = 1000
+button.Parent = screenGui
+
+-- Hàm cập nhật nút (chỉ thay đổi text và màu)
+function updateButton()
+    if isRunning then
+        button.Text = "🔴 Dừng"
+        button.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
+    else
+        button.Text = "🟢 Bắt đầu"
+        button.BackgroundColor3 = Color3.fromRGB(60, 120, 255)
+    end
+end
+
+button.MouseButton1Click:Connect(function()
+    if isRunning then
+        stopAuto()
+    else
+        startAuto()
+    end
+end)
+
+updateButton()
+
+pcall(function()
+    LocalPlayer.PlayerScripts.Scripts.Core["Idle Tracking"].Enabled = false
+end)
+
+LocalPlayer.Idled:Connect(function()
+    game:GetService("VirtualUser"):Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+    task.wait(1)
+    game:GetService("VirtualUser"):Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+end)
