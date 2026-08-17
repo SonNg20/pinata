@@ -6,7 +6,7 @@ local LocalPlayer = Players.LocalPlayer
 
 local RADIUS = 18
 local DELAY = 0.5
-local THREAD_COUNT = 2
+local THREAD_COUNT = 1
 local CHECK_INTERVAL = 0.5
 local MAX_FAILS = 1000000
 
