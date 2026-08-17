@@ -91,21 +91,21 @@ local function continuousCheck()
         local _, newTotal = getGiftInfo()
         if newTotal == totalAmount then
             failCount = failCount + 1
-            print(string.format("[CHECK] Số lượng không đổi (%d) - lần %d/%d", totalAmount, failCount, MAX_FAILS))
+            print(string.format("[CHECK] So luong khong doi (%d) - lan %d/%d", totalAmount, failCount, MAX_FAILS))
         else
             totalAmount = newTotal
             failCount = 0
-            print("[CHECK] Còn lại:", totalAmount)
+            print("[CHECK] Con lai:", totalAmount)
         end
         if totalAmount <= 0 then
             isRunning = false
-            print("Đã mở hết Fiesta Gift!")
+            print("Da mo het Fiesta Gift!")
             updateButton()
             break
         end
         if failCount >= MAX_FAILS then
             isRunning = false
-            print("Số lượng không giảm sau " .. MAX_FAILS .. " lần kiểm tra.")
+            print("So luong khong giam sau " .. MAX_FAILS .. " lan kiem tra.")
             updateButton()
             break
         end
@@ -115,7 +115,7 @@ end
 local function startAuto()
     local uid, amount = getGiftInfo()
     if not uid or amount <= 0 then
-        print("Không có Fiesta Gift để mở.")
+        print("Khong co Fiesta Gift de mo.")
         return
     end
     giftUID = uid
@@ -125,7 +125,7 @@ local function startAuto()
     isRunning = true
 
     print(string.format("Start %d gift (UID: %s)", totalAmount, giftUID))
-    print(string.format("Số luồng: %d, Delay: %s, Batch: %d (tự động)", THREAD_COUNT, tostring(DELAY), getBatchSize()))
+    print(string.format("So luong: %d, Delay: %s, Batch: %d (tu dong)", THREAD_COUNT, tostring(DELAY), getBatchSize()))
 
     for i = 1, THREAD_COUNT do
         task.spawn(spamThread)
@@ -136,11 +136,10 @@ end
 
 local function stopAuto()
     isRunning = false
-    print("Đã dừng tự động mở quà.")
+    print("Da dung tu dong mo qua.")
     updateButton()
 end
 
--- GUI
 local playerGui = LocalPlayer:WaitForChild("PlayerGui")
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "FiestaGiftAutoGUI"
@@ -163,10 +162,10 @@ button.Parent = screenGui
 
 function updateButton()
     if isRunning then
-        button.Text = "🔴 Dừng"
+        button.Text = "🔴 Dung"
         button.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
     else
-        button.Text = "🟢 Bắt đầu"
+        button.Text = "🟢 Bat dau"
         button.BackgroundColor3 = Color3.fromRGB(60, 120, 255)
     end
 end
@@ -181,12 +180,10 @@ end)
 
 updateButton()
 
--- ============================================================
--- SCRIPT ANTI-AFK (NHẢY 1 LẦN MỖI 60 GIÂY)
--- ============================================================
+-- Anti-AFK (nhay moi 60 giay)
 local antiAfkRunning = true
 task.spawn(function()
-    print("[Anti-AFK] Đã khởi động cơ chế tự động nhảy sau mỗi 60 giây!")
+    print("[Anti-AFK] Da khoi dong co che tu dong nhay sau moi 60 giay!")
     while antiAfkRunning do
         task.wait(60)
         pcall(function()
@@ -195,12 +192,12 @@ task.spawn(function()
                 local humanoid = char:FindFirstChildOfClass("Humanoid")
                 if humanoid and humanoid.Health > 0 then
                     humanoid.Jump = true
-                    print("[Anti-AFK] Nhân vật vừa tự động nhảy để chống AFK.")
+                    print("[Anti-AFK] Nhan vat vua tu dong nhay de chong AFK.")
                 end
             end
         end)
     end
 end)
 
--- Tự động bắt đầu khi script load
+-- Tu dong bat dau khi script load
 task.spawn(startAuto)
