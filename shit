@@ -3,11 +3,10 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SaveModule = require(ReplicatedStorage:WaitForChild("Library"):WaitForChild("Client"):WaitForChild("Save"))
 local KX_Release = ReplicatedStorage:WaitForChild("Network"):WaitForChild("KX_Release")
 local LocalPlayer = Players.LocalPlayer
-local VirtualUser = game:GetService("VirtualUser")
 
 local RADIUS = 18
-local DELAY = 0.5
-local THREAD_COUNT = 1
+local DELAY = 0.05
+local THREAD_COUNT = 2
 local CHECK_INTERVAL = 0.5
 local MAX_FAILS = 1000000
 
@@ -53,15 +52,11 @@ local function getPositionsAroundPlayer()
     return positions
 end
 
--- ===== SỬA LOGIC BATCH =====
 local function getBatchSize()
-    if totalAmount >= 8 then
-        return 8
-    elseif totalAmount >= 1 then
-        return totalAmount   -- mở hết số còn lại (1–7)
-    else
-        return 0
-    end
+    if totalAmount >= 8 then return 8
+    elseif totalAmount >= 4 then return 4
+    elseif totalAmount >= 1 then return 1
+    else return 0 end
 end
 
 local function openGift(amount)
@@ -79,6 +74,7 @@ local function openGift(amount)
     end
     totalAmount = totalAmount - amount
     callCount = callCount + 1
+    -- Không cập nhật UI vì không có label số lượng
 end
 
 local function spamThread()
@@ -96,21 +92,21 @@ local function continuousCheck()
         local _, newTotal = getGiftInfo()
         if newTotal == totalAmount then
             failCount = failCount + 1
-            print(string.format("[CHECK] So luong khong doi (%d) - lan %d/%d", totalAmount, failCount, MAX_FAILS))
+            print(string.format("[CHECK] Số lượng không đổi (%d) - lần %d/%d", totalAmount, failCount, MAX_FAILS))
         else
             totalAmount = newTotal
             failCount = 0
-            print("[CHECK] Con lai:", totalAmount)
+            print("[CHECK] Còn lại:", totalAmount)
         end
         if totalAmount <= 0 then
             isRunning = false
-            print("Da mo het Fiesta Gift!")
-            updateButton()
+            print("Đã mở hết Fiesta Gift!")
+            updateButton()   -- cập nhật nút về trạng thái dừng
             break
         end
         if failCount >= MAX_FAILS then
             isRunning = false
-            print("So luong khong giam sau " .. MAX_FAILS .. " lan kiem tra.")
+            print("Số lượng không giảm sau " .. MAX_FAILS .. " lần kiểm tra.")
             updateButton()
             break
         end
@@ -120,7 +116,7 @@ end
 local function startAuto()
     local uid, amount = getGiftInfo()
     if not uid or amount <= 0 then
-        print("Khong co Fiesta Gift de mo.")
+        print("Không có Fiesta Gift để mở.")
         return
     end
     giftUID = uid
@@ -130,7 +126,7 @@ local function startAuto()
     isRunning = true
 
     print(string.format("Start %d gift (UID: %s)", totalAmount, giftUID))
-    print(string.format("So luong: %d, Delay: %s, Batch: %d (tu dong)", THREAD_COUNT, tostring(DELAY), getBatchSize()))
+    print(string.format("Số luồng: %d, Delay: %s, Batch: %d (tự động)", THREAD_COUNT, tostring(DELAY), getBatchSize()))
 
     for i = 1, THREAD_COUNT do
         task.spawn(spamThread)
@@ -141,11 +137,10 @@ end
 
 local function stopAuto()
     isRunning = false
-    print("Da dung tu dong mo qua.")
+    print("Đã dừng tự động mở quà.")
     updateButton()
 end
 
--- GUI
 local playerGui = LocalPlayer:WaitForChild("PlayerGui")
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "FiestaGiftAutoGUI"
@@ -158,7 +153,7 @@ screenGui.Parent = playerGui
 local button = Instance.new("TextButton")
 button.Name = "ToggleButton"
 button.Size = UDim2.new(0, 120, 0, 36)
-button.Position = UDim2.new(0, 10, 0, 150)
+button.Position = UDim2.new(0, 10, 0, 150)   -- góc trái, cách top 30px
 button.BackgroundColor3 = Color3.fromRGB(60, 120, 255)
 button.TextColor3 = Color3.new(1, 1, 1)
 button.TextScaled = true
@@ -166,12 +161,13 @@ button.Font = Enum.Font.SourceSansBold
 button.ZIndex = 1000
 button.Parent = screenGui
 
+-- Hàm cập nhật nút (chỉ thay đổi text và màu)
 function updateButton()
     if isRunning then
-        button.Text = "🔴 Dung"
+        button.Text = "🔴 Dừng"
         button.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
     else
-        button.Text = "🟢 Bat dau"
+        button.Text = "🟢 Bắt đầu"
         button.BackgroundColor3 = Color3.fromRGB(60, 120, 255)
     end
 end
@@ -186,47 +182,13 @@ end)
 
 updateButton()
 
--- ===== ANTI-AFK NÂNG CAO =====
 pcall(function()
-    if LocalPlayer.PlayerScripts and LocalPlayer.PlayerScripts.Scripts and LocalPlayer.PlayerScripts.Scripts.Core then
-        LocalPlayer.PlayerScripts.Scripts.Core["Idle Tracking"].Enabled = false
-    end
+    LocalPlayer.PlayerScripts.Scripts.Core["Idle Tracking"].Enabled = false
 end)
 
-local antiAfkRunning = true
-
--- VirtualUser (giữ kết nối)
-task.spawn(function()
-    while antiAfkRunning do
-        pcall(function()
-            VirtualUser:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
-            task.wait(0.1)
-            VirtualUser:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
-        end)
-        task.wait(30)
-    end
+LocalPlayer.Idled:Connect(function()
+    game:GetService("VirtualUser"):Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+    task.wait(1)
+    game:GetService("VirtualUser"):Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
 end)
-
--- Nhảy + di chuyển nhẹ (tạo hoạt động thực)
-task.spawn(function()
-    while antiAfkRunning do
-        task.wait(45)
-        pcall(function()
-            local char = LocalPlayer.Character
-            if char then
-                local humanoid = char:FindFirstChildOfClass("Humanoid")
-                if humanoid and humanoid.Health > 0 then
-                    humanoid.Jump = true
-                    task.wait(0.2)
-                    local moveDirection = Vector3.new(math.random(-1, 1), 0, math.random(-1, 1))
-                    if moveDirection.Magnitude > 0 then
-                        humanoid:MoveTo(char.HumanoidRootPart.Position + moveDirection.Unit * 2)
-                    end
-                end
-            end
-        end)
-    end
-end)
-
--- Tự động chạy
 task.spawn(startAuto)
