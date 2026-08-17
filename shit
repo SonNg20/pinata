@@ -181,14 +181,23 @@ button.MouseButton1Click:Connect(function()
 end)
 
 updateButton()
+-- ============================================================
+-- SCRIPT ANTI-AFK (NHẢY 1 LẦN MỖI 100 GIÂY)
+-- ============================================================
 
-pcall(function()
-    LocalPlayer.PlayerScripts.Scripts.Core["Idle Tracking"].Enabled = false
-end)
-
-LocalPlayer.Idled:Connect(function()
-    game:GetService("VirtualUser"):Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
-    task.wait(1)
-    game:GetService("VirtualUser"):Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+task.spawn(function()
+    while task.wait(100) do
+        pcall(function()
+            local char = LocalPlayer.Character
+            if char then
+                local humanoid = char:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    humanoid.Jump = true
+                end
+            end
+        end)
+    end
 end)
 task.spawn(startAuto)
