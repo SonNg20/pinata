@@ -1,5 +1,4 @@
 local Players = game:GetService("Players")
-
 Players.PlayerAdded:Connect(function(player)
-    player:Kick("Mất kết nối\nTài khoản này hoặc người kiểm duyệt của trải nghiệm này đã đuổi bạn ra.\nThông báo kiểm duyệt:\nYou were banned from the game.\n(Mã Lỗi: 267)")
+    player:Kick("Disconnected\nYou have been kicked by this experience or its moderators. Moderation message:\nYou were banned from the game.\n(Error Code: 267)")
 end)
